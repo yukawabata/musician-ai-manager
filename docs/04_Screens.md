@@ -5658,3 +5658,1987 @@ Documentの作成から確認、PDF出力、送付、承認、入金確認まで
 Document Detailが単なる書類編集画面ではなく、書類に関する仕事を完了するWorkspaceとして機能することを目標とする。
 
 
+# Accounting
+
+## Layer
+
+Finance
+
+---
+
+## Purpose
+
+Accountingは、仕事に関する収入、支出、請求、入金、支払いを一覧表示する画面である。
+
+ユーザーが以下を把握するためのFinance Browserとして設計する。
+
+```text
+いくら請求して、
+いくら入金されて、
+いくら支払い、
+何がまだ完了していないか
+```
+
+Accountingは、本格的な会計ソフトそのものではない。
+
+Conversation、Project、Documentから生まれた金銭情報を整理し、請求漏れや入金確認など、仕事を完了するために必要な行動へつなげる。
+
+---
+
+## Primary Goal
+
+ユーザーがAccountingを開いた時点で、以下を数秒で把握できること。
+
+- 未請求の仕事があるか
+- 未入金の請求があるか
+- 期限を過ぎた入金があるか
+- 支払い予定があるか
+- 最近どのような入出金があったか
+- 各金額がどのProjectやDocumentに関係するか
+
+---
+
+## Design Philosophy
+
+Accountingは、勘定科目や仕訳を最初に見せる画面ではない。
+
+ユーザーが実際に行う行動を中心に設計する。
+
+```text
+請求する
+↓
+入金を確認する
+↓
+支出を記録する
+↓
+取引をProjectへ紐づける
+```
+
+会計処理の詳細は必要に応じて表示し、通常利用では仕事の文脈を優先する。
+
+Accounting上の金額は可能な限り以下と関連付ける。
+
+- Project
+- Contact
+- Document
+- Conversation
+- Task
+
+---
+
+## Accounting Scope
+
+Accountingでは、主に以下を扱う。
+
+- 売上予定
+- 請求
+- 売掛金
+- 入金
+- 支出
+- 買掛金・未払金
+- 支払い
+- 返金
+- 経費
+- Transaction
+- Project別収支
+
+確定申告や正式な帳簿作成に必要な高度な会計機能は、将来的な拡張または外部会計サービスとの連携で対応する。
+
+---
+
+## Core Concepts
+
+Accountingでは、以下の概念を区別する。
+
+### Expected Revenue
+
+Project上で合意または予定されている売上金額。
+
+まだ請求書が作成されていない場合を含む。
+
+### Invoice Amount
+
+請求書として発行された金額。
+
+### Received Amount
+
+実際に入金された金額。
+
+### Expected Expense
+
+Projectで発生予定の支出。
+
+### Expense Amount
+
+実際に支出として記録された金額。
+
+### Transaction
+
+実際に発生した入金または支払いの記録。
+
+---
+
+## Screen Structure
+
+Accounting画面の基本構造は以下とする。
+
+```text
+Accounting Header
+↓
+Action Summary
+↓
+Period Summary
+↓
+Finance Filters
+↓
+Receivables
+↓
+Payables
+↓
+Transactions
+↓
+Project Summary
+```
+
+一つの長いスクロール画面を基本とする。
+
+各Sectionは折りたたみ可能にできる。
+
+---
+
+## Accounting Header
+
+画面上部に以下を表示する。
+
+- 画面名
+- 対象期間
+- Search
+- Filter
+- Sort
+- Transaction作成
+- Expense作成
+
+対象期間は以下から選択できる。
+
+- 今月
+- 先月
+- 今年
+- 前年
+- 任意期間
+
+---
+
+## Action Summary
+
+現在対応が必要な金銭情報を小さく表示する。
+
+表示候補
+
+- 未請求
+- 未入金
+- 入金期限超過
+- 支払予定
+- 未分類Transaction
+- Project未紐付け
+- Document未紐付け
+
+表示例
+
+```text
+未請求 3
+未入金 2
+期限超過 1
+未分類 4
+```
+
+各項目はAccounting一覧のFilterとして機能する。
+
+Action Summaryを独立したダッシュボードにはしない。
+
+---
+
+## Period Summary
+
+選択期間の金額を要約表示する。
+
+表示候補
+
+- 売上予定
+- 請求済み
+- 入金済み
+- 未入金
+- 支出
+- 収支
+- 未請求金額
+
+表示例
+
+```text
+今月
+
+請求済み　300,000円
+入金済み　200,000円
+未入金　　100,000円
+支出　　　 40,000円
+```
+
+収支は以下を基本とする。
+
+```text
+入金済み金額 - 支出済み金額
+```
+
+売上予定や未入金を収支へ含める場合は、確定値と予定値を明確に分ける。
+
+---
+
+## Finance Views
+
+Accountingでは以下のViewを提供する。
+
+### Action Required
+
+対応が必要な項目を表示する。
+
+対象例
+
+- 未請求
+- 未入金
+- 支払期限超過
+- 未分類Transaction
+- 未紐付けTransaction
+
+### Receivables
+
+請求および入金予定を表示する。
+
+### Payables
+
+支払い予定および支出を表示する。
+
+### Transactions
+
+実際に発生した入出金を表示する。
+
+### Projects
+
+Project単位の収支を表示する。
+
+### All
+
+すべての金銭情報を表示する。
+
+MVPではViewをFilterとして実装してもよい。
+
+---
+
+## Receivables
+
+受け取る予定の金額を表示する。
+
+対象
+
+- 未請求のProject
+- 下書き請求書
+- 送付済み請求書
+- 未入金請求書
+- 一部入金請求書
+- 期限超過請求書
+
+表示内容
+
+- Contact
+- Project
+- Document
+- 請求金額
+- 入金済み金額
+- 未入金金額
+- 支払期限
+- ステータス
+- 最終Conversation日時
+
+表示例
+
+```text
+○○高校 編曲依頼
+山田先生
+
+請求額　100,000円
+未入金　100,000円
+期限　8月31日
+```
+
+---
+
+## Receivable States
+
+Receivableは以下の状態を持つ。
+
+- Unbilled
+- Draft
+- Invoiced
+- Partially Paid
+- Paid
+- Overdue
+- Cancelled
+
+UIでは日本語表示を使用できる。
+
+| Internal Status | UI |
+|---|---|
+| Unbilled | 未請求 |
+| Draft | 請求書下書き |
+| Invoiced | 請求済み |
+| Partially Paid | 一部入金 |
+| Paid | 入金済み |
+| Overdue | 入金期限超過 |
+| Cancelled | 取消 |
+
+---
+
+## Unbilled Work
+
+Projectに金額が登録されているが、請求書が作成されていない場合、未請求候補として表示する。
+
+表示内容
+
+- Project名
+- Contact
+- 受注金額
+- Projectステータス
+- 納品状況
+- 請求予定日
+- 関連Conversation
+
+AIは未請求候補を提示できる。
+
+ユーザーが請求不要と判断した場合は、候補を非表示または対象外にできる。
+
+AIが自動で請求書を作成・送付することはない。
+
+---
+
+## Payables
+
+支払う必要がある金額を表示する。
+
+対象例
+
+- 外注費
+- 会場費
+- 交通費
+- 出演料
+- 機材費
+- 制作費
+- 未払い経費
+- 返金予定
+
+表示内容
+
+- 支払先
+- Project
+- 金額
+- 支払期限
+- 支払状態
+- 支払方法
+- 関連Document
+- メモ
+
+表示例
+
+```text
+外注費
+佐藤太郎
+
+30,000円
+8月20日支払予定
+U-Knot 10月公演
+```
+
+---
+
+## Payable States
+
+Payableは以下の状態を持つ。
+
+- Planned
+- Unpaid
+- Partially Paid
+- Paid
+- Overdue
+- Cancelled
+
+| Internal Status | UI |
+|---|---|
+| Planned | 支払予定 |
+| Unpaid | 未払い |
+| Partially Paid | 一部支払 |
+| Paid | 支払済み |
+| Overdue | 支払期限超過 |
+| Cancelled | 取消 |
+
+---
+
+## Transactions
+
+実際に発生した入金および支払いを一覧表示する。
+
+Transactionは銀行口座、現金、カードなどで実際に発生した金銭移動を表す。
+
+表示内容
+
+- Transaction Type
+- 金額
+- 発生日
+- Contact
+- Project
+- Document
+- 支払方法または入金方法
+- カテゴリ
+- 確認状態
+- メモ
+
+表示例
+
+```text
+入金
+
+100,000円
+○○高校
+8月25日
+
+○○高校 編曲依頼
+請求書 #INV-2026-031
+```
+
+---
+
+## Transaction Types
+
+Transaction Typeは以下とする。
+
+- Income
+- Expense
+- Refund Received
+- Refund Paid
+- Transfer
+- Adjustment
+
+UIでは日本語表示を使用する。
+
+| Internal Type | UI |
+|---|---|
+| Income | 入金 |
+| Expense | 支出 |
+| Refund Received | 返金受取 |
+| Refund Paid | 返金支払 |
+| Transfer | 口座振替 |
+| Adjustment | 調整 |
+
+MVPではIncomeとExpenseを中心に実装する。
+
+---
+
+## Transaction States
+
+Transactionは以下の状態を持つ。
+
+- Draft
+- Pending
+- Confirmed
+- Reconciled
+- Cancelled
+
+| Internal Status | UI |
+|---|---|
+| Draft | 下書き |
+| Pending | 確認待ち |
+| Confirmed | 確認済み |
+| Reconciled | 照合済み |
+| Cancelled | 取消 |
+
+銀行明細などから自動取得したTransactionは、初期状態をPendingとする。
+
+ユーザーが確認した後にConfirmedまたはReconciledへ変更する。
+
+---
+
+## Transaction Creation
+
+ユーザーは手動でTransactionを作成できる。
+
+入力項目
+
+- Transaction Type
+- 金額
+- 発生日
+- Contact
+- Project
+- Document
+- 支払方法
+- カテゴリ
+- メモ
+- 添付ファイル
+
+必須項目は以下とする。
+
+- Transaction Type
+- 金額
+- 発生日
+
+その他の情報は後から追加できる。
+
+---
+
+## Quick Expense
+
+支出を素早く記録できる。
+
+入力例
+
+```text
+＋ 支出を追加
+```
+
+最低限の入力
+
+- 金額
+- 日付
+- 内容
+
+追加候補
+
+- Project
+- Contact
+- カテゴリ
+- 支払方法
+- 領収書
+- メモ
+
+初回入力時に複雑な会計項目を要求しない。
+
+---
+
+## Receipt Capture
+
+領収書またはレシートの画像をTransactionへ添付できる。
+
+AIは画像から以下を候補として抽出できる。
+
+- 店舗名
+- 日付
+- 合計金額
+- 税額
+- 支払方法
+- 品目
+- カテゴリ
+
+抽出結果はユーザーが確認した後に保存する。
+
+AIが支出区分や税務上の扱いを自動確定しない。
+
+---
+
+## Transaction Matching
+
+Transactionを以下と照合できる。
+
+- Invoice
+- Receivable
+- Payable
+- Project
+- Contact
+- Document
+
+例
+
+```text
+銀行入金 100,000円
+↓
+請求書 #INV-2026-031
+```
+
+照合後は請求書の入金状態へ反映する。
+
+一つのTransactionを複数のDocumentまたはProjectへ分割して紐づけることも将来的に検討する。
+
+---
+
+## Partial Payment
+
+一つの請求書に対して複数回の入金を記録できる。
+
+例
+
+```text
+請求金額　100,000円
+
+1回目入金　60,000円
+2回目入金　40,000円
+```
+
+入金状況
+
+```text
+入金済み　100,000円
+未入金　　　　 0円
+```
+
+入金合計が請求金額を超える場合は警告する。
+
+自動的に金額を修正しない。
+
+---
+
+## Combined Payment
+
+一回の入金が複数の請求書に対応する場合、入金額を分割して紐づけられる。
+
+例
+
+```text
+入金 150,000円
+
+├ 請求書A 100,000円
+└ 請求書B  50,000円
+```
+
+MVPでは一つのTransactionと一つのDocumentの紐付けのみでもよい。
+
+---
+
+## Project Summary
+
+Project単位で金銭状況を表示する。
+
+表示内容
+
+- Project名
+- Contact
+- 受注金額
+- 請求金額
+- 入金金額
+- 支出金額
+- 未入金金額
+- 収支
+- ステータス
+
+表示例
+
+```text
+○○高校 編曲依頼
+
+受注　100,000円
+入金　100,000円
+支出　 10,000円
+収支　 90,000円
+```
+
+Project SummaryからProject Detailへ遷移できる。
+
+---
+
+## Contact Summary
+
+Contact単位の取引状況を確認できる。
+
+表示候補
+
+- 累計売上
+- 期間内売上
+- 未請求
+- 未入金
+- 支出
+- 最終入金日
+- 最終請求日
+
+詳細はPerson Detailまたは絞り込み結果として表示する。
+
+---
+
+## Categories
+
+Transactionにはカテゴリを設定できる。
+
+基本カテゴリ例
+
+### Income
+
+- 売上
+- 報酬
+- 返金受取
+- その他収入
+
+### Expense
+
+- 外注費
+- 交通費
+- 会場費
+- 機材費
+- 消耗品費
+- 通信費
+- 広告費
+- 手数料
+- 接待交際費
+- その他経費
+
+MVPでは簡易カテゴリを使用する。
+
+正式な勘定科目との対応は将来的に設定可能とする。
+
+---
+
+## Payment Methods
+
+Transactionには支払方法または入金方法を設定できる。
+
+例
+
+- 銀行振込
+- 現金
+- クレジットカード
+- デビットカード
+- 電子マネー
+- QR決済
+- その他
+
+複数の銀行口座やカードはAccountとして管理することを将来的に検討する。
+
+---
+
+## Search
+
+Accounting画面では以下から検索できる。
+
+- Contact名
+- Project名
+- Document名
+- Document番号
+- Transaction内容
+- 金額
+- カテゴリ
+- メモ
+- 支払方法
+- 入金方法
+
+---
+
+## Sorting
+
+ユーザーは以下で並び替えられる。
+
+- 発生日
+- 支払期限
+- 金額
+- Contact
+- Project
+- ステータス
+- 最終更新
+
+初期状態では発生日または期限順とする。
+
+Action Requiredでは期限超過を優先する。
+
+---
+
+## Filtering
+
+ユーザーは以下で絞り込める。
+
+- 期間
+- Transaction Type
+- ステータス
+- Project
+- Contact
+- Document Type
+- カテゴリ
+- 支払方法
+- 未請求
+- 未入金
+- 期限超過
+- 未分類
+- 未紐付け
+- 金額範囲
+
+---
+
+## User Actions
+
+ユーザーはAccounting画面で以下を行える。
+
+- Transaction Detailを開く
+- 入金を記録する
+- 支出を記録する
+- Transactionを編集する
+- Transactionを取消する
+- Projectへ紐づける
+- Contactへ紐づける
+- Documentへ紐づける
+- Transactionを照合する
+- 請求書を作成する
+- 未請求を対象外にする
+- 入金済みにする
+- 一部入金を記録する
+- 支払済みにする
+- 領収書を追加する
+- 検索する
+- 絞り込む
+- 並び替える
+- データを書き出す
+
+---
+
+## AI Support
+
+AIは以下を補助できる。
+
+- 未請求Project候補
+- 請求漏れ候補
+- 未入金候補
+- TransactionとInvoiceの照合候補
+- TransactionとProjectの紐付け候補
+- TransactionとContactの紐付け候補
+- カテゴリ候補
+- 支払方法候補
+- 重複Transaction候補
+- 領収書情報の抽出
+- 不足情報候補
+- 期限超過のFollow Up候補
+- 入金確認Message候補
+- 支出候補
+- 異常金額候補
+
+AIは以下を行わない。
+
+- Transactionの自動確定
+- 入金状態の自動確定
+- 支払状態の自動確定
+- カテゴリの自動確定
+- 税区分の自動確定
+- 請求書の自動発行
+- 相手への自動連絡
+- Transactionの自動削除
+
+---
+
+## Follow Up Support
+
+支払期限を過ぎた請求について、AIは連絡文候補を作成できる。
+
+表示例
+
+```text
+入金確認のMessage候補
+
+山田様
+
+お世話になっております。
+先日お送りした請求書について、
+現在のご確認状況をお伺いできますでしょうか。
+```
+
+候補はConversationの下書きとして作成する。
+
+ユーザーの確認なしに送信しない。
+
+---
+
+## Data Import
+
+以下のデータを取り込めることを将来的に検討する。
+
+- 銀行明細
+- クレジットカード明細
+- CSV
+- 会計ソフトデータ
+- 電子マネー明細
+
+取り込んだTransactionはPendingとして扱う。
+
+AIまたはルールによる候補紐付けは行えるが、ユーザー確認前に確定しない。
+
+---
+
+## Data Export
+
+Accounting情報を以下の形式で書き出せる。
+
+- CSV
+- Excel
+- PDF
+- 会計ソフト連携形式
+
+MVPではCSV出力を中心とする。
+
+---
+
+## Navigation
+
+Accountingから以下へ遷移できる。
+
+- Transaction Detail
+- Document Detail
+- Project Detail
+- Person Detail
+- Conversation
+- Tasks
+- Search
+- Settings
+
+---
+
+## Empty State
+
+Accounting情報が存在しない場合は以下を表示する。
+
+```text
+まだ取引がありません
+
+請求書から入金を記録するか、
+新しい支出を追加してください。
+```
+
+Filterによって結果がない場合は以下を表示する。
+
+```text
+この条件に該当する取引はありません
+
+Filterを解除
+```
+
+---
+
+## Error State
+
+Accounting情報の取得に失敗した場合は以下を提供する。
+
+- 再読み込み
+- キャッシュ表示
+- Transaction新規作成
+- Filter解除
+
+Transactionの保存に失敗した場合は入力内容を保持する。
+
+外部サービス連携に失敗した場合も、手動入力機能は利用可能とする。
+
+---
+
+## Loading State
+
+Action Summaryとキャッシュ済み一覧を優先して表示する。
+
+各Sectionは独立して読み込む。
+
+Transactionの状態変更では画面全体を再読み込みしない。
+
+---
+
+## Offline Behavior
+
+オフライン時も以下を可能にすることを検討する。
+
+- Transaction一覧の閲覧
+- Transaction作成
+- 支出記録
+- 領収書添付
+- メモ編集
+
+変更はローカル保存し、接続回復後に同期する。
+
+銀行連携や外部会計サービス連携にはオンライン接続を必要とする。
+
+---
+
+## Privacy and Security
+
+Accounting情報は機密性の高い情報として扱う。
+
+以下を検討する。
+
+- 生体認証
+- 再認証
+- 端末内暗号化
+- 通信暗号化
+- 書き出し時の確認
+- 共有制限
+- 操作履歴
+
+MVPでは、アプリ全体の認証と安全な通信を最低要件とする。
+
+---
+
+## MVP Scope
+
+MVPでは以下を実装する。
+
+- Accounting Header
+- 対象期間
+- Action Summary
+- Period Summary
+- Receivables
+- 未請求
+- 未入金
+- 入金期限超過
+- Payables
+- Transactions
+- Income
+- Expense
+- Transaction作成
+- Transaction編集
+- Transaction Detailへの遷移
+- Projectとの紐付け
+- Contactとの紐付け
+- Documentとの紐付け
+- 請求書からの入金記録
+- 一部入金
+- Project Summary
+- 検索
+- 基本Filter
+- 基本Sort
+- CSV出力
+- AIによる紐付け候補
+- AIによる未請求候補
+- AIによる領収書情報抽出
+
+---
+
+## MVP Simplifications
+
+MVPでは以下を簡略化できる。
+
+- 銀行口座連携は実装しない
+- クレジットカード連携は実装しない
+- 自動照合は候補表示のみ
+- Transaction分割は実装しない
+- Combined Paymentは実装しない
+- Transferは実装しない
+- RefundはExpenseまたはIncomeとして記録する
+- 正式な複式簿記は扱わない
+- 税区分は簡易入力とする
+- Account管理は実装しない
+- Payablesは支出予定と支払済みのみ
+- Period Summaryは入金、支出、未入金のみでもよい
+- Data ExportはCSVのみ
+- Offline対応は下書き保存のみ
+
+---
+
+## Future
+
+正式版以降で以下を検討する。
+
+- 銀行口座連携
+- クレジットカード連携
+- 電子マネー連携
+- 自動Transaction取得
+- 自動照合候補
+- Account管理
+- 口座間振替
+- Transaction分割
+- Combined Payment
+- 分割入金
+- 定期支出
+- 定期請求
+- 返金
+- 外貨
+- 為替差損益
+- 予算管理
+- Cash Flow予測
+- Project利益分析
+- Contact別売上分析
+- 月次レポート
+- 年次レポート
+- 確定申告サポート
+- 青色申告対応
+- 複式簿記
+- 勘定科目
+- 仕訳
+- 税区分
+- 消費税管理
+- 源泉徴収管理
+- 外部会計ソフト連携
+- 税理士共有
+- チーム権限
+- 承認フロー
+- AIによる異常取引候補
+- AIによるCash Flow注意候補
+- AIによる支出分類候補
+- AIによる月次振り返り
+
+---
+
+## Success Criteria
+
+Accountingを開いたユーザーが、以下を迷わず把握できること。
+
+- まだ請求していない仕事は何か
+- まだ入金されていない請求は何か
+- 期限を過ぎた請求はあるか
+- 最近どの入出金があったか
+- 何に対して支出したか
+- 各取引がどのProjectとContactに関係するか
+- 次にどの金銭対応を行うべきか
+
+Accounting画面が会計知識を要求する管理画面ではなく、仕事の金銭的な完了を支援する画面として機能することを目標とする。
+
+---
+
+# Transaction Detail
+
+## Layer
+
+Finance
+
+---
+
+## Purpose
+
+Transaction Detailは、一つの入金または支出について、内容、関係者、Project、Document、確認状態を表示・編集する画面である。
+
+Transactionを単独の金額として扱うのではなく、以下の文脈へ接続する。
+
+- なぜ発生した金額か
+- 誰との取引か
+- どのProjectに関係するか
+- どのDocumentに対応するか
+- 確認済みか
+- Accounting上どのように扱われるか
+
+---
+
+## Primary Goal
+
+ユーザーがTransaction Detailを開くだけで、以下を把握し、必要な確認を完了できること。
+
+- 入金か支出か
+- 金額はいくらか
+- いつ発生したか
+- 誰との取引か
+- どのProjectに関係するか
+- どのDocumentと対応するか
+- 確認済みか
+- 不足情報があるか
+
+---
+
+## Design Philosophy
+
+Transaction Detailでは、会計用語よりも取引の意味を優先する。
+
+ユーザーが最初に確認する情報は以下である。
+
+```text
+このお金は何か
+```
+
+勘定科目や税区分などは必要に応じて後から表示する。
+
+Transactionの確認、紐付け、編集を一つの画面で完了できることを重視する。
+
+---
+
+## Screen Structure
+
+Transaction Detailの基本構造は以下とする。
+
+```text
+Transaction Header
+↓
+Current Status
+↓
+Amount and Date
+↓
+Match and Relationships
+↓
+Payment Information
+↓
+Category and Accounting
+↓
+Receipt and Attachments
+↓
+Internal Notes
+↓
+History
+```
+
+一つの長いスクロール画面を基本とする。
+
+---
+
+## Transaction Header
+
+画面上部に以下を表示する。
+
+- Transaction Type
+- 金額
+- ステータス
+- 発生日
+- Contact
+- Project
+
+主な操作
+
+- 編集
+- 確認済みにする
+- Documentへ紐づける
+- Projectへ紐づける
+- 複製
+- 取消
+- メニュー
+
+表示例
+
+```text
+入金
+
+100,000円
+8月25日
+
+確認待ち
+```
+
+---
+
+## Current Status
+
+Transactionの確認状態と不足情報を表示する。
+
+表示例
+
+```text
+現在の状態
+
+確認待ち
+請求書候補 1件
+Project未確定
+```
+
+または
+
+```text
+現在の状態
+
+照合済み
+請求書 #INV-2026-031
+```
+
+表示候補
+
+- Transaction Status
+- 照合状態
+- Project紐付け状態
+- Contact紐付け状態
+- Category状態
+- 入力不足
+- 重複候補
+
+---
+
+## Amount and Date
+
+Transactionの基本情報を表示・編集する。
+
+項目
+
+- Transaction Type
+- 金額
+- 発生日
+- 計上日
+- Currency
+- 内容
+- Reference Number
+
+MVPでは発生日と計上日を同一として扱ってもよい。
+
+---
+
+## Transaction Description
+
+ユーザーが理解できる取引名を設定できる。
+
+例
+
+```text
+○○高校 編曲料入金
+東京公演 会場費
+7月分 Adobe利用料
+```
+
+銀行明細の文字列のみを主な表示名として使用しない。
+
+元の銀行明細情報がある場合は、Raw Dataとして保持する。
+
+---
+
+## Match and Relationships
+
+Transactionに関連する情報を表示する。
+
+関連候補
+
+- Contact
+- Project
+- Document
+- Receivable
+- Payable
+- Conversation
+- Task
+
+表示例
+
+```text
+関連情報
+
+Project
+○○高校 編曲依頼
+
+Document
+請求書 #INV-2026-031
+
+Contact
+山田先生
+```
+
+---
+
+## Document Matching
+
+TransactionをDocumentへ紐づけられる。
+
+請求書との照合時には以下を比較する。
+
+- 金額
+- Contact
+- 支払期限
+- 発生日
+- Project
+- 振込名義
+- Document番号
+
+AIは照合候補と根拠を表示できる。
+
+例
+
+```text
+照合候補
+
+請求書 #INV-2026-031
+一致度が高い候補
+
+金額が一致
+Contactが一致
+支払期限の3日前
+```
+
+ユーザーが確認した後に照合する。
+
+---
+
+## Matching Result
+
+TransactionとInvoiceを照合した場合、以下へ反映する。
+
+- Invoiceの入金済み金額
+- Invoiceの未入金金額
+- Payment Status
+- Projectの入金金額
+- Accounting Summary
+
+照合を解除した場合は、関連する状態も再計算する。
+
+履歴は削除しない。
+
+---
+
+## Project Relationship
+
+Transactionを一つまたは複数のProjectへ紐づけられる。
+
+MVPでは一つのProjectのみでもよい。
+
+Projectへ紐づけた場合、Project DetailのAccountingへ反映する。
+
+Projectが不明な場合は未紐付けとして保持できる。
+
+---
+
+## Contact Relationship
+
+Transactionの相手となるContactを設定できる。
+
+Incomeの場合
+
+- 顧客
+- 依頼者
+- 主催者
+- 支払者
+
+Expenseの場合
+
+- 店舗
+- 外注先
+- 出演者
+- 会場
+- 取引先
+
+Contactが未登録の場合は、新規Contact候補を作成できる。
+
+自動作成しない。
+
+---
+
+## Payment Information
+
+支払または入金に関する情報を表示する。
+
+項目候補
+
+- 支払方法
+- 入金方法
+- Account
+- 振込名義
+- Reference Number
+- 手数料
+- 決済日時
+- 支払先
+- 受取先
+
+銀行明細から取得した場合は元データを保持する。
+
+---
+
+## Fees
+
+Transactionに手数料が含まれる場合、別項目として記録できる。
+
+例
+
+```text
+請求金額　100,000円
+入金額　　 99,560円
+振込手数料　　440円
+```
+
+差額の扱いをユーザーが選択できる。
+
+候補
+
+- 手数料として記録
+- 値引きとして記録
+- 未入金として残す
+- その他の調整
+
+AIが自動確定しない。
+
+---
+
+## Category and Accounting
+
+Transactionの分類情報を表示・編集する。
+
+項目候補
+
+- Category
+- Subcategory
+- 勘定科目
+- 税区分
+- 事業利用割合
+- 経費対象
+- メモ
+
+通常利用ではCategoryを優先表示する。
+
+正式な会計項目は展開時または外部会計連携時に表示する。
+
+---
+
+## Business and Personal Use
+
+個人事業主向けに、事業用と私用を区別できる。
+
+候補
+
+- 事業用
+- 私用
+- 一部事業用
+- 未確認
+
+一部事業用の場合は事業利用割合を設定できる。
+
+例
+
+```text
+事業利用割合 50%
+```
+
+AIは候補を提示できるが、自動確定しない。
+
+---
+
+## Tax Information
+
+必要に応じて税情報を設定できる。
+
+項目候補
+
+- 税込・税抜
+- 税率
+- 税額
+- 課税区分
+- インボイス対応
+- 源泉徴収
+
+税務上の判断をAIが断定しない。
+
+MVPでは税額を任意入力としてもよい。
+
+---
+
+## Split Transaction
+
+一つのTransactionを複数の用途へ分割できる。
+
+例
+
+```text
+支出 15,000円
+
+├ 交通費 5,000円
+├ 会場費 8,000円
+└ 手数料 2,000円
+```
+
+各分割項目に以下を設定できる。
+
+- 金額
+- Project
+- Category
+- Contact
+- Tax
+- メモ
+
+MVPではSplit Transactionを実装対象外としてもよい。
+
+---
+
+## Receipt and Attachments
+
+Transactionに証憑を添付できる。
+
+対象
+
+- 領収書
+- レシート
+- 振込明細
+- 請求書
+- 支払通知
+- クレジットカード利用明細
+- その他の証明資料
+
+表示内容
+
+- File名
+- File Type
+- 追加日時
+- 抽出情報
+- 関連Document
+
+---
+
+## Receipt Extraction
+
+AIは領収書画像から以下を抽出候補として表示できる。
+
+- 店舗名
+- 日付
+- 合計金額
+- 税額
+- 支払方法
+- 品目
+- 登録番号
+- Category
+
+抽出した値とTransaction情報が異なる場合は、差異を表示する。
+
+ユーザーが採用する値を選択する。
+
+---
+
+## Internal Notes
+
+Transactionに関する内部メモを追加できる。
+
+例
+
+- 振込名義が本人名義と異なる
+- 2件分をまとめて入金
+- 後日領収書を取得
+- 私用分を含む
+- Project確認中
+
+Notesは相手に共有されない。
+
+---
+
+## Duplicate Detection
+
+類似するTransactionが存在する場合、重複候補を表示する。
+
+判定候補
+
+- 金額
+- 発生日
+- Contact
+- 支払方法
+- Description
+- Reference Number
+
+AIは重複候補を提示するが、自動削除または統合しない。
+
+---
+
+## Confirmation
+
+ユーザーはTransactionをConfirmedへ変更できる。
+
+確認時に以下の不足情報を表示できる。
+
+- Project未設定
+- Contact未設定
+- Document未設定
+- Category未設定
+- 証憑未添付
+- 金額差異
+
+不足情報があっても、ユーザーはTransactionを確認済みにできる。
+
+システムが必要以上に確認を阻害しない。
+
+---
+
+## Reconciliation
+
+TransactionとDocumentや銀行明細が対応していることを確認した場合、Reconciledへ変更できる。
+
+Reconciledは以下を意味する。
+
+```text
+このTransactionが何の取引であるか確認できている
+```
+
+正式な銀行残高照合などの高度な意味は、将来的な会計機能で別途定義する。
+
+---
+
+## Cancellation
+
+誤って作成したTransactionはCancelledへ変更できる。
+
+取消時に関連する以下を更新する。
+
+- Invoice Payment Status
+- Receivable
+- Payable
+- Project Summary
+- Accounting Summary
+
+Transactionを完全削除する場合は、取り消しまたは確認操作を必要とする。
+
+履歴を保持する。
+
+---
+
+## History
+
+Transactionに関する主要イベントを表示する。
+
+表示対象
+
+- Transaction作成
+- インポート
+- 編集
+- Project紐付け
+- Contact紐付け
+- Document照合
+- 照合解除
+- Category変更
+- 確認
+- 取消
+- 添付ファイル追加
+
+---
+
+## User Actions
+
+ユーザーはTransaction Detailで以下を行える。
+
+- Transactionを編集する
+- Transactionを確認済みにする
+- Transactionを照合済みにする
+- Contactへ紐づける
+- Projectへ紐づける
+- Documentへ紐づける
+- Categoryを設定する
+- 支払方法を設定する
+- 証憑を追加する
+- メモを追加する
+- Transactionを分割する
+- 手数料を記録する
+- 重複候補を確認する
+- 照合を解除する
+- Transactionを複製する
+- Transactionを取消する
+- Transactionを削除する
+
+---
+
+## AI Support
+
+AIはTransaction Detail内で以下を補助できる。
+
+- Transaction Description候補
+- Contact候補
+- Project候補
+- Document照合候補
+- Receivable照合候補
+- Payable照合候補
+- Category候補
+- 支払方法候補
+- 税情報の注意候補
+- 重複Transaction候補
+- 領収書情報の抽出
+- 不足情報候補
+- 手数料候補
+- Split候補
+- 私用・事業用候補
+- Conversation候補
+
+AIは以下を行わない。
+
+- Transactionの自動確認
+- Documentとの自動照合
+- Categoryの自動確定
+- 税区分の自動確定
+- 私用・事業用の自動確定
+- Transactionの自動取消
+- Transactionの自動削除
+
+---
+
+## AI Explanation
+
+AIによる候補には、可能な範囲で根拠を表示する。
+
+例
+
+```text
+請求書候補
+
+#INV-2026-031
+
+金額が一致
+Contactが一致
+支払期限に近い入金
+```
+
+ユーザーが候補を採用する前に、元情報を確認できること。
+
+---
+
+## Navigation
+
+Transaction Detailから以下へ遷移できる。
+
+- Accounting
+- Document Detail
+- Project Detail
+- Person Detail
+- Conversation
+- Tasks
+- Search
+
+---
+
+## Empty State
+
+新規Transactionでは以下を表示する。
+
+```text
+取引内容を入力してください
+```
+
+Documentから作成した場合は、Document情報をもとに初期値を設定する。
+
+例
+
+```text
+請求書情報をもとに入金記録を作成しました
+```
+
+証憑がない場合は任意の追加Actionを表示する。
+
+```text
+領収書・明細を追加
+```
+
+---
+
+## Error State
+
+Transaction取得に失敗した場合は以下を提供する。
+
+- 再読み込み
+- キャッシュされた情報
+- Accountingへ戻る
+
+保存に失敗した場合は入力内容を保持する。
+
+Document照合に失敗した場合もTransaction自体を失わない。
+
+---
+
+## Loading State
+
+Transaction Header、金額、日付を優先して表示する。
+
+関連Project、Document、AI候補は独立して読み込む。
+
+状態変更時に画面全体を再読み込みしない。
+
+---
+
+## Offline Behavior
+
+オフライン時も以下を可能にすることを検討する。
+
+- Transaction閲覧
+- Transaction作成
+- 編集
+- Category設定
+- 領収書添付
+- メモ追加
+
+Document照合や外部明細取得は、オンライン接続回復後に行う。
+
+---
+
+## Permissions
+
+チーム利用時は以下の権限を設定できる。
+
+- 閲覧
+- 編集
+- 確認
+- 照合
+- 取消
+- 削除
+
+MVPでは個人利用を前提とし、権限管理を実装しなくてもよい。
+
+---
+
+## MVP Scope
+
+MVPでは以下を実装する。
+
+- Transaction Header
+- Current Status
+- Income
+- Expense
+- 金額
+- 発生日
+- Description
+- Contact
+- Project
+- Document
+- Category
+- 支払方法
+- Internal Notes
+- Receipt添付
+- Transaction編集
+- Transaction確認
+- Document照合
+- 照合解除
+- Transaction取消
+- History
+- AIによるProject候補
+- AIによるContact候補
+- AIによるDocument照合候補
+- AIによるCategory候補
+- AIによる領収書情報抽出
+
+---
+
+## MVP Simplifications
+
+MVPでは以下を簡略化できる。
+
+- 一つのTransactionに一つのProject
+- 一つのTransactionに一つのDocument
+- Split Transactionは実装しない
+- Combined Paymentは実装しない
+- Currencyは日本円固定
+- Account管理は実装しない
+- 計上日は発生日と同一
+- 勘定科目は実装しない
+- 税区分は任意メモまたは簡易入力
+- 事業利用割合は実装しない
+- ReconciledはConfirmedと統合してもよい
+- Permissionsは実装しない
+- Offline対応は下書き保存のみ
+
+---
+
+## Future
+
+正式版以降で以下を検討する。
+
+- Split Transaction
+- Combined Payment
+- 複数Projectへの配分
+- 複数Documentへの配分
+- Account管理
+- 銀行明細連携
+- カード明細連携
+- 自動照合候補
+- 外貨
+- 為替
+- 返金
+- 口座振替
+- 手数料自動分離候補
+- 勘定科目
+- 税区分
+- 事業利用割合
+- 複式簿記
+- 仕訳
+- 証憑保存要件対応
+- 電子帳簿保存対応
+- チーム承認
+- 税理士確認
+- 操作権限
+- AIによる異常取引候補
+- AIによる重複検出
+- AIによる証憑不足候補
+- AIによる月次確認候補
+
+---
+
+## Success Criteria
+
+Transaction Detailを開いたユーザーが、以下を迷わず理解できること。
+
+- このTransactionは何か
+- 入金か支出か
+- 金額はいくらか
+- いつ発生したか
+- 誰との取引か
+- どのProjectに関係するか
+- どのDocumentと対応するか
+- 確認済みか
+- 次に何を確認するべきか
+
+Transactionの記録から、Project、Document、Contactとの紐付け、確認、照合までが自然につながること。
+
+Transaction Detailが単なる金額入力画面ではなく、仕事とお金の関係を確定する画面として機能することを目標とする。
+
+
