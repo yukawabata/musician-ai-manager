@@ -3911,3 +3911,1750 @@ Taskの確認から、完了、延期、返信、Project確認までが自然に
 Tasks画面が、仕事を細かく管理するための画面ではなく、ユーザーが次の行動を始めるための画面として機能することを目標とする。
 
 
+# Documents
+
+## Layer
+
+Output
+
+---
+
+## Purpose
+
+Documentsは、仕事に関連する見積書、請求書、契約書、納品書などを一覧表示する画面である。
+
+ユーザーが書類を探し、作成し、送付状況や対応状況を確認するための入口として設計する。
+
+Documentsは単なるファイル一覧ではない。
+
+以下を把握するためのBusiness Document Browserである。
+
+```text
+どの書類を、
+誰に、
+何の仕事について、
+どの状態で発行しているか
+```
+
+---
+
+## Primary Goal
+
+ユーザーが必要なDocumentを数秒で見つけ、作成、確認、送付、請求、入金確認などの次の行動へ進めること。
+
+---
+
+## Design Philosophy
+
+Documentsでは、書類ファイルそのものだけでなく、書類が発生した仕事の文脈を重視する。
+
+Documentは可能な限り、以下の情報と関連付ける。
+
+- Project
+- Contact
+- Conversation
+- Accounting
+- Task
+
+Documents画面は書類保管庫ではない。
+
+書類を起点として、関連する仕事や金銭の状態へアクセスできるようにする。
+
+---
+
+## Document Definition
+
+Documentは、仕事上の合意、依頼、納品、請求、支払いなどを記録または伝達する情報単位を表す。
+
+Documentは必ずしもPDFファイルに限定しない。
+
+Documentは以下を含む。
+
+- 入力データ
+- 表示内容
+- 発行状態
+- 送付状態
+- 関連Project
+- 関連Contact
+- 関連Conversation
+- PDFなどの出力ファイル
+- 改訂履歴
+
+ファイルはDocumentの出力形式または添付物として扱う。
+
+---
+
+## Document Types
+
+基本的なDocument Typeは以下とする。
+
+- Estimate
+- Invoice
+- Contract
+- Delivery Note
+- Purchase Order
+- Receipt
+- Statement
+- Proposal
+- Other
+
+UIでは日本語表示を使用できる。
+
+| Internal Type | UI |
+|---|---|
+| Estimate | 見積書 |
+| Invoice | 請求書 |
+| Contract | 契約書 |
+| Delivery Note | 納品書 |
+| Purchase Order | 発注書 |
+| Receipt | 領収書 |
+| Statement | 支払明細・取引明細 |
+| Proposal | 提案書 |
+| Other | その他 |
+
+MVPでは、見積書と請求書を中心に実装する。
+
+---
+
+## Document States
+
+Documentは以下の共通ステータスを持つ。
+
+- Draft
+- Ready
+- Sent
+- Viewed
+- Accepted
+- Rejected
+- Paid
+- Expired
+- Cancelled
+- Archived
+
+UIではDocument Typeに応じて適切な名称を表示する。
+
+| Internal Status | UI Example |
+|---|---|
+| Draft | 下書き |
+| Ready | 発行準備済み |
+| Sent | 送付済み |
+| Viewed | 閲覧済み |
+| Accepted | 承認済み |
+| Rejected | 差し戻し |
+| Paid | 入金済み |
+| Expired | 期限切れ |
+| Cancelled | 取消 |
+| Archived | アーカイブ |
+
+すべてのDocument Typeがすべてのステータスを使用する必要はない。
+
+---
+
+## Screen Structure
+
+Documents画面の基本構造は以下とする。
+
+```text
+Documents Header
+↓
+Quick Status
+↓
+Document Type Filters
+↓
+Document List
+↓
+Archived Documents
+```
+
+---
+
+## Documents Header
+
+画面上部に以下を表示する。
+
+- 画面名
+- Search
+- Filter
+- Sort
+- 表示設定
+- Document作成
+
+Document作成は画面内のPrimary Actionとして配置する。
+
+---
+
+## Quick Status
+
+対応が必要なDocument数を小さく表示する。
+
+表示候補
+
+- 下書き
+- 未送付
+- 承認待ち
+- 未請求
+- 未入金
+- 期限切れ
+
+表示例
+
+```text
+下書き 2
+未送付 1
+未入金 3
+```
+
+各項目はDocument ListのFilterとして機能する。
+
+Quick Statusを独立したダッシュボードにはしない。
+
+---
+
+## Document Type Filters
+
+Document Typeごとに一覧を絞り込める。
+
+基本Filter
+
+- All
+- Estimates
+- Invoices
+- Contracts
+- Delivery Notes
+- Other
+
+UIでは日本語表示を使用する。
+
+MVPでは以下のみでもよい。
+
+- すべて
+- 見積書
+- 請求書
+- その他
+
+---
+
+## Views
+
+Documentsでは、目的に応じたViewを提供できる。
+
+### Recent
+
+最近作成または更新されたDocumentを表示する。
+
+### Action Required
+
+ユーザーの対応が必要なDocumentを表示する。
+
+対象例
+
+- Draft
+- Readyだが未送付
+- 差し戻し
+- 期限切れ
+- 未入金
+
+### Sent
+
+送付済みDocumentを表示する。
+
+### Completed
+
+承認、入金、処理が完了したDocumentを表示する。
+
+### All
+
+すべてのDocumentを表示する。
+
+MVPではViewではなくFilterとして実装してもよい。
+
+---
+
+## Display
+
+Document Listでは以下を表示する。
+
+- Document名
+- Document Type
+- Document番号
+- Contact
+- Project
+- 金額
+- ステータス
+- 発行日
+- 送付日
+- 支払期限または有効期限
+- 最終更新日時
+
+表示例
+
+```text
+請求書 #INV-2026-031
+
+○○高校 編曲依頼
+山田先生
+
+100,000円
+未入金
+支払期限 8月31日
+```
+
+一覧ではすべての情報を表示せず、Document Typeと状態に応じて重要な情報を優先する。
+
+---
+
+## Document Naming
+
+Documentにはユーザーが理解できる表示名を設定できる。
+
+例
+
+```text
+○○高校 編曲料 請求書
+U-Knot 10月公演 見積書
+```
+
+Document番号だけを主な表示名として使用しない。
+
+Document番号は識別情報として補助表示する。
+
+---
+
+## Document Numbering
+
+Document TypeごとにDocument番号を設定できる。
+
+例
+
+```text
+EST-2026-001
+INV-2026-001
+CTR-2026-001
+```
+
+番号は自動採番できる。
+
+ユーザーは必要に応じて番号を編集できる。
+
+同一番号の重複を検出し、警告する。
+
+自動採番の形式はSettingsから変更可能にすることを検討する。
+
+---
+
+## Sorting
+
+ユーザーは以下の条件で並び替えられる。
+
+- 最終更新
+- 発行日
+- 期限
+- 金額
+- Contact
+- Project
+- Document番号
+- ステータス
+
+初期状態では最終更新日時順とする。
+
+Action Requiredでは、期限と対応状態を優先できる。
+
+---
+
+## Filtering
+
+ユーザーは以下の条件で絞り込める。
+
+- Document Type
+- ステータス
+- Project
+- Contact
+- 発行日
+- 期限
+- 金額
+- 未送付
+- 未請求
+- 未入金
+- ラベル
+- 作成者
+- アーカイブ状態
+
+MVPでは主要項目のみ実装する。
+
+---
+
+## Search
+
+Documents画面では以下から検索できる。
+
+- Document名
+- Document番号
+- Contact名
+- Project名
+- 品目名
+- 金額
+- 備考
+- メモ
+- Conversation
+- ラベル
+
+検索結果からDocument Detail、Project Detail、Person Detailへ遷移できる。
+
+---
+
+## Document Creation
+
+Documents画面から新しいDocumentを作成できる。
+
+作成時は最初にDocument Typeを選択する。
+
+例
+
+```text
+新しいDocument
+
+見積書
+請求書
+契約書
+納品書
+その他
+```
+
+Document Typeの選択後、関連するProjectまたはContactを指定できる。
+
+Projectから作成した場合は、Project情報を引き継ぐ。
+
+---
+
+## Quick Create
+
+以下の情報だけでDocumentの下書きを作成できる。
+
+- Document Type
+- Contact
+- Project
+- 金額
+
+その他の項目はDocument Detailで編集できる。
+
+初回作成時にすべての項目を要求しない。
+
+---
+
+## Project-Based Creation
+
+ProjectからDocumentを作成する場合、以下を候補として自動入力する。
+
+- Project名
+- Primary Contact
+- 請求先Contact
+- Project概要
+- 受注金額
+- 納期
+- 品目
+- Conversation
+- 支払条件
+
+ユーザーが内容を確認してから保存する。
+
+---
+
+## Conversation-Based Creation
+
+Conversation内のMessageからDocument候補を作成できる。
+
+例
+
+```text
+「今回の編曲料は10万円でお願いします」
+```
+
+AIによる候補
+
+```text
+見積書候補
+
+宛先：山田先生
+Project：○○高校 編曲依頼
+金額：100,000円
+```
+
+AIはDocumentを自動発行または自動送付しない。
+
+---
+
+## Import
+
+既存のDocumentファイルを取り込める。
+
+対象例
+
+- PDF
+- 画像
+- Word
+- Excel
+
+取り込み時は以下を設定できる。
+
+- Document Type
+- Contact
+- Project
+- 発行日
+- 金額
+- ステータス
+
+AIはファイル内容から候補情報を抽出できる。
+
+抽出結果はユーザーが確認する。
+
+---
+
+## User Actions
+
+ユーザーはDocuments画面で以下を行える。
+
+- Document Detailを開く
+- Documentを作成する
+- Documentを複製する
+- Documentを削除する
+- Documentをアーカイブする
+- PDFを表示する
+- PDFを書き出す
+- Documentを送付する
+- ステータスを変更する
+- Projectへ紐づける
+- Contactへ紐づける
+- 検索する
+- 絞り込む
+- 並び替える
+- 複数選択する
+
+---
+
+## Bulk Actions
+
+複数のDocumentを選択して以下を行える。
+
+- アーカイブ
+- 削除
+- ステータス変更
+- Project変更
+- Contact変更
+- PDF出力
+- ダウンロード
+
+MVPではBulk Actionsを実装対象外としてもよい。
+
+---
+
+## AI Support
+
+AIは以下を補助できる。
+
+- ConversationからのDocument候補
+- Document Type候補
+- Contact候補
+- Project候補
+- 品目候補
+- 金額候補
+- 支払期限候補
+- 有効期限候補
+- 備考文候補
+- メール文候補
+- 入力漏れ候補
+- 重複Document候補
+- 請求漏れ候補
+- ステータス変更候補
+- インポートDocumentの情報抽出
+
+AIはDocumentを自動発行、送付、承認、入金済みに変更しない。
+
+---
+
+## Navigation
+
+Documentsから以下へ遷移できる。
+
+- Document Detail
+- Project Detail
+- Person Detail
+- Conversation
+- Accounting
+- Transaction Detail
+- Search
+
+---
+
+## Empty State
+
+Documentが存在しない場合は以下を表示する。
+
+```text
+まだDocumentがありません
+
+Projectから見積書や請求書を作成するか、
+新しいDocumentを作成してください。
+```
+
+Filterによって結果がない場合は以下を表示する。
+
+```text
+この条件に該当するDocumentはありません
+
+Filterを解除
+```
+
+---
+
+## Error State
+
+Document一覧の取得に失敗した場合は以下を提供する。
+
+- 再読み込み
+- キャッシュ表示
+- Document新規作成
+- Filter解除
+
+Document作成または編集に失敗した場合は、入力内容を失わないよう下書きとして保持する。
+
+---
+
+## Loading State
+
+Document Listのスケルトンを表示する。
+
+PDFサムネイルの読み込みを待たず、Document名や状態を先に表示する。
+
+---
+
+## MVP Scope
+
+MVPでは以下を実装する。
+
+- Document一覧
+- 見積書
+- 請求書
+- その他Document
+- Document名
+- Document番号
+- Contact
+- Project
+- 金額
+- ステータス
+- 発行日
+- 支払期限
+- Quick Status
+- Document Type Filter
+- 検索
+- 基本Filter
+- 基本Sort
+- Document作成
+- Document Detailへの遷移
+- PDF表示
+- PDF出力
+- ProjectからのDocument作成
+- AIによる入力候補
+
+---
+
+## MVP Simplifications
+
+MVPでは以下を簡略化できる。
+
+- Document Typeは見積書、請求書、その他のみ
+- Viewは実装せずFilterで代用する
+- Bulk Actionsは実装しない
+- ImportはPDFのみ、またはFutureへ移動
+- 自動採番形式は固定
+- Viewedステータスは実装しない
+- 複雑な承認フローは実装しない
+- Document送付はメール添付またはファイル共有のみ
+- PDFサムネイルは実装しない
+
+---
+
+## Future
+
+正式版以降で以下を検討する。
+
+- 契約書
+- 納品書
+- 発注書
+- 領収書
+- 支払明細
+- 提案書
+- Custom Document Type
+- Document Template
+- Template Marketplace
+- 電子署名
+- 電子契約
+- Client Approval
+- Client Portal
+- Online Payment
+- 閲覧履歴
+- 送付履歴
+- 開封通知
+- 自動採番設定
+- 複数通貨
+- 多言語Document
+- 税制設定
+- インボイス制度対応
+- 源泉徴収対応
+- PDF以外の出力形式
+- 外部会計サービス連携
+- Document一括出力
+- AIによるDocument比較
+- AIによる契約リスク候補
+- AIによる過去Document再利用
+
+---
+
+## Success Criteria
+
+Documentsを開いたユーザーが、以下を迷わず把握できること。
+
+- どのDocumentが存在するか
+- 誰に対するDocumentか
+- どのProjectに関係するか
+- 送付済みか
+- 承認済みか
+- 請求済みか
+- 入金済みか
+- 次に対応するDocumentは何か
+
+Documentの検索から、編集、送付、請求確認、Project確認までが自然につながること。
+
+---
+
+# Document Detail
+
+## Layer
+
+Output
+
+---
+
+## Purpose
+
+Document Detailは、一つのDocumentを作成、編集、確認、発行、送付し、その後の状態を追跡する画面である。
+
+Documentの内容だけでなく、Documentが発生したConversation、Project、Contact、Accountingの文脈を一つの画面にまとめる。
+
+Document Detailは単なる帳票編集画面ではない。
+
+書類に関する一連の仕事を完了するためのDocument Workspaceとして設計する。
+
+---
+
+## Primary Goal
+
+ユーザーがDocument Detailを開くだけで、以下を把握し、必要な操作を実行できること。
+
+- 何のDocumentか
+- 誰に対するDocumentか
+- どのProjectに関係するか
+- 内容に不足や誤りがないか
+- 現在どの状態か
+- 送付済みか
+- 次に何をするべきか
+- Accountingへどう反映されるか
+
+---
+
+## Design Philosophy
+
+Document Detailでは、入力フォームと完成形のDocumentを分離しすぎない。
+
+ユーザーが入力した内容が、実際のDocument上でどのように表示されるかを確認しやすくする。
+
+Documentの作成から送付までを一つの画面内で進められることを優先する。
+
+基本構造は以下とする。
+
+```text
+Document Header
+↓
+Current Status
+↓
+Document Preview
+↓
+Primary Actions
+↓
+Document Content
+↓
+Recipient
+↓
+Project and Conversation
+↓
+Accounting
+↓
+Files and Attachments
+↓
+Notes
+↓
+History
+↓
+Document Settings
+```
+
+一つの長いスクロール画面を基本とする。
+
+---
+
+## Document Header
+
+画面上部に以下を表示する。
+
+- Document名
+- Document Type
+- Document番号
+- ステータス
+- Contact
+- Project
+- 最終更新日時
+
+主な操作
+
+- 編集
+- Preview
+- PDF出力
+- 送付
+- 複製
+- ステータス変更
+- メニュー
+
+---
+
+## Current Status
+
+Documentの現在状態と次の行動を簡潔に表示する。
+
+表示例
+
+```text
+現在の状態
+
+下書き
+未送付
+入力不足 1件
+```
+
+または
+
+```text
+現在の状態
+
+送付済み
+支払期限 8月31日
+未入金
+```
+
+表示候補
+
+- ステータス
+- 送付状態
+- 承認状態
+- 支払状態
+- 有効期限
+- 支払期限
+- 入力不足
+- 次のTask
+
+---
+
+## Document Preview
+
+実際に発行されるDocumentのPreviewを表示する。
+
+Previewでは以下を確認できる。
+
+- レイアウト
+- 宛名
+- 発行者情報
+- 品目
+- 金額
+- 税
+- 日付
+- 備考
+- 支払情報
+- ページ数
+
+Previewと入力内容がリアルタイムまたは短い遅延で連動することが望ましい。
+
+モバイルでは、縮小Previewまたは全画面Previewへの導線を表示する。
+
+---
+
+## Edit Mode
+
+Document Detailでは、閲覧状態と編集状態を区別できる。
+
+編集状態では以下を行える。
+
+- テキスト入力
+- 項目追加
+- 項目削除
+- 並び替え
+- Contact変更
+- Project変更
+- 金額変更
+- 税設定
+- 支払期限設定
+- 備考編集
+- Template変更
+
+変更は下書きとして自動保存する。
+
+発行済みDocumentを編集する場合は、改訂版として扱うことを検討する。
+
+---
+
+## Primary Actions
+
+Documentの状態に応じて、主要Actionを変更する。
+
+### Draft
+
+- 内容を編集
+- Preview
+- 発行準備完了
+
+### Ready
+
+- PDF出力
+- 送付
+- 下書きへ戻す
+
+### Sent
+
+- 送付履歴を確認
+- 再送
+- 承認済みにする
+- 入金を記録
+- 取消
+
+### Accepted
+
+- 請求書を作成
+- 入金を記録
+- 関連Taskを確認
+
+### Paid
+
+- 入金情報を確認
+- 領収書を作成
+- アーカイブ
+
+Primary Actionは一つまたは二つに絞る。
+
+多数のActionを常に同じ強さで表示しない。
+
+---
+
+## Document Content
+
+Document Typeに応じた内容を編集する。
+
+共通項目
+
+- Document名
+- Document番号
+- 発行日
+- 有効期限
+- 支払期限
+- 件名
+- 品目
+- 数量
+- 単位
+- 単価
+- 税率
+- 小計
+- 税額
+- 合計金額
+- 備考
+- 支払条件
+
+Document Typeごとに不要な項目は表示しない。
+
+---
+
+## Line Items
+
+見積書や請求書では複数の品目を登録できる。
+
+各品目の項目
+
+- 品目名
+- 説明
+- 数量
+- 単位
+- 単価
+- 税率
+- 金額
+
+表示例
+
+```text
+編曲料
+1式 × 100,000円
+100,000円
+```
+
+ユーザーは品目を追加、削除、複製、並び替えできる。
+
+---
+
+## Amount Calculation
+
+金額は入力内容に基づいて自動計算する。
+
+計算対象
+
+- 数量 × 単価
+- 小計
+- 割引
+- 税
+- 源泉徴収
+- 調整額
+- 合計金額
+
+自動計算された金額をユーザーが確認できること。
+
+計算結果と手動入力が矛盾する場合は警告する。
+
+ユーザーの確認なしに金額を変更しない。
+
+---
+
+## Tax Settings
+
+Documentごとに税設定を変更できる。
+
+設定候補
+
+- 課税
+- 非課税
+- 不課税
+- 税率
+- 内税
+- 外税
+- 品目ごとの税率
+- 端数処理
+
+MVPでは標準税率と外税計算を中心に実装する。
+
+税務上の判断をAIが断定しない。
+
+---
+
+## Withholding Tax
+
+源泉徴収が必要な取引では、源泉徴収額を設定できる。
+
+表示候補
+
+- 対象
+- 税率
+- 計算対象金額
+- 源泉徴収額
+- 差引請求額
+
+源泉徴収の適用はユーザーが判断する。
+
+AIは候補や注意事項を表示できるが、自動適用しない。
+
+---
+
+## Recipient
+
+Documentの宛先情報を表示・編集する。
+
+表示候補
+
+- Contact名
+- 法人名・団体名
+- 部署
+- 役職
+- 担当者名
+- 郵便番号
+- 住所
+- メールアドレス
+- 敬称
+- 請求先情報
+
+Person DetailまたはProjectから情報を引き継げる。
+
+Document上の宛先情報は、Contactの現在情報とは別にSnapshotとして保持する。
+
+Contact情報が後から変更されても、発行済みDocumentの宛先を自動変更しない。
+
+---
+
+## Issuer
+
+Documentの発行者情報を表示・編集する。
+
+表示候補
+
+- 氏名
+- 屋号
+- 法人名
+- 郵便番号
+- 住所
+- 電話番号
+- メールアドレス
+- 登録番号
+- 振込先
+- 印影
+- ロゴ
+
+発行者情報はSettingsのProfileから引き継ぐ。
+
+Documentごとに変更できることを検討する。
+
+---
+
+## Project and Conversation
+
+Documentに関連するProjectとConversationを表示する。
+
+表示内容
+
+- Project名
+- Primary Contact
+- Projectステータス
+- 最新Conversation
+- Document作成の根拠となったMessage
+
+ユーザーは以下を行える。
+
+- Project Detailを開く
+- Conversationを開く
+- 関連Projectを変更する
+- 関連Messageを確認する
+
+---
+
+## Accounting
+
+Documentに関連するAccounting情報を表示する。
+
+見積書の場合
+
+- 見積金額
+- 受注状態
+- 受注金額
+- 関連請求書
+
+請求書の場合
+
+- 請求金額
+- 支払期限
+- 入金済み金額
+- 未入金金額
+- 入金日
+- 関連Transaction
+
+Document Detailから入金を記録できる。
+
+入金記録はAccounting側にも反映する。
+
+---
+
+## Document Relationships
+
+Document同士を関連付けられる。
+
+例
+
+```text
+見積書
+↓
+契約書
+↓
+請求書
+↓
+領収書
+```
+
+関連情報として以下を表示する。
+
+- 元になったDocument
+- 次に作成されたDocument
+- 改訂前Document
+- 改訂後Document
+- 取消Document
+
+見積書から請求書を作成する場合、品目や金額を引き継ぐ。
+
+---
+
+## Versioning
+
+Documentを改訂した場合、Versionを記録できる。
+
+表示例
+
+```text
+Version 3
+
+Version 1　7月10日
+Version 2　7月15日
+Version 3　7月18日
+```
+
+Versionごとに以下を保持する。
+
+- Document内容
+- 発行日時
+- 作成者
+- PDF
+- 変更内容
+- 送付状態
+
+MVPでは、発行前は同一下書きを更新し、発行後の編集時だけ複製または改訂版を作成する方式でもよい。
+
+---
+
+## Sending
+
+Document DetailからDocumentを送付できる。
+
+送付方法の候補
+
+- Gmail
+- その他のメール
+- Conversation Source
+- 共有リンク
+- PDFダウンロード
+- 外部共有
+
+送付前に以下を確認する。
+
+- 宛先
+- 件名
+- Message本文
+- 添付ファイル
+- Document Version
+- 金額
+- 期限
+
+AIは送付Messageの下書きを作成できる。
+
+ユーザーの確認なしに送付しない。
+
+---
+
+## Send Message
+
+Document送付時のMessageを編集できる。
+
+表示例
+
+```text
+山田様
+
+お世話になっております。
+○○高校編曲依頼の請求書をお送りします。
+
+ご確認のほど、よろしくお願いいたします。
+```
+
+AIによる候補は下書きとして表示する。
+
+送付後はConversationに送付記録を追加する。
+
+---
+
+## Send History
+
+Documentの送付履歴を表示する。
+
+表示内容
+
+- 送付日時
+- 送付先
+- 送付方法
+- Document Version
+- Message
+- 送信結果
+- 開封状態
+
+MVPでは送付日時、送付先、送信結果のみでもよい。
+
+---
+
+## Approval
+
+見積書、契約書、提案書などでは承認状態を記録できる。
+
+状態候補
+
+- 未回答
+- 承認
+- 差し戻し
+- 拒否
+- 期限切れ
+
+承認は以下の方法で記録できる。
+
+- ユーザーによる手動記録
+- Client Portal
+- 共有リンク
+- Conversationからの候補検出
+
+AIは承認らしいMessageを検出できるが、自動承認しない。
+
+---
+
+## Payment Status
+
+請求書では支払状態を表示する。
+
+状態候補
+
+- 未請求
+- 請求済み
+- 一部入金
+- 入金済み
+- 期限超過
+- 取消
+
+支払状態はDocument StatusとAccounting情報の両方から構成される。
+
+ユーザーが入金を記録した時点で確定する。
+
+---
+
+## Attachments
+
+Documentに関連する添付ファイルを追加できる。
+
+例
+
+- 明細
+- 参考資料
+- 契約条件
+- 納品物
+- 証明書
+- 既存PDF
+
+添付ファイルはDocument本体と区別する。
+
+---
+
+## Internal Notes
+
+Documentに関する内部メモを保存できる。
+
+例
+
+- 金額確認中
+- 次回から単価変更
+- 支払条件は月末締め翌月末
+- 郵送も必要
+- 担当者確認済み
+
+Internal Notesは相手に送付されない。
+
+AIがConversationからNote候補を提示できる。
+
+---
+
+## History
+
+Documentに関する主要イベントを時系列で表示する。
+
+表示対象
+
+- Document作成
+- 編集
+- ステータス変更
+- PDF出力
+- 送付
+- 再送
+- 承認
+- 差し戻し
+- 入金
+- 取消
+- アーカイブ
+- Version作成
+
+Historyから過去のVersionや送付内容を確認できる。
+
+---
+
+## Document Settings
+
+Document固有の設定を表示する。
+
+設定候補
+
+- Template
+- Language
+- Currency
+- Tax
+- Numbering
+- Date Format
+- Rounding
+- Signature
+- Logo
+- Payment Information
+- Footer
+- Access Permission
+
+MVPでは基本的なTemplate、税、振込先のみでもよい。
+
+---
+
+## Validation
+
+発行または送付前に入力内容を確認する。
+
+確認対象
+
+- 宛先
+- 発行者
+- Document番号
+- 発行日
+- 品目
+- 金額
+- 税
+- 期限
+- 振込先
+- 関連Project
+
+問題がある場合は警告を表示する。
+
+警告が存在しても、法的またはシステム上不可能でない限り、ユーザーが発行を続行できるようにする。
+
+---
+
+## Duplicate Detection
+
+類似するDocumentが存在する場合、重複候補を表示する。
+
+判定候補
+
+- Contact
+- Project
+- Document Type
+- 金額
+- 発行日
+- 品目
+
+AIは重複候補を提示するが、自動削除または統合しない。
+
+---
+
+## User Actions
+
+ユーザーはDocument Detailで以下を行える。
+
+- Documentを編集する
+- Previewを確認する
+- PDFを出力する
+- Documentを送付する
+- 送付Messageを編集する
+- Documentを複製する
+- Versionを作成する
+- ステータスを変更する
+- Projectへ紐づける
+- Contactへ紐づける
+- Conversationへ紐づける
+- 添付ファイルを追加する
+- Internal Noteを追加する
+- 承認状態を記録する
+- 入金を記録する
+- 関連Documentを作成する
+- Documentを取消する
+- Documentをアーカイブする
+- Documentを削除する
+
+---
+
+## AI Support
+
+AIはDocument Detail内で以下を補助できる。
+
+- Document Type候補
+- Document名候補
+- 件名候補
+- Contact候補
+- Project候補
+- 品目候補
+- 数量・単価候補
+- 金額候補
+- 税設定の注意候補
+- 支払期限候補
+- 有効期限候補
+- 備考文候補
+- 送付Message候補
+- 入力不足候補
+- 重複Document候補
+- 承認Message候補
+- 入金Message候補
+- 関連Document候補
+- Conversation要約
+- インポート内容の抽出
+
+AIは以下を行わない。
+
+- 金額の自動確定
+- 税区分の自動確定
+- 源泉徴収の自動適用
+- Documentの自動発行
+- Documentの自動送付
+- 承認状態の自動確定
+- 入金状態の自動確定
+- Documentの自動削除
+
+---
+
+## AI Content Generation
+
+AIはDocument本文や品目説明の候補を生成できる。
+
+例
+
+```text
+品目候補
+
+吹奏楽編成への楽曲編曲
+スコアおよびパート譜制作一式
+```
+
+生成内容はすべて編集可能な下書きとして扱う。
+
+ユーザーが採用しない限りDocumentへ反映しない。
+
+---
+
+## Navigation
+
+Document Detailから以下へ遷移できる。
+
+- Documents
+- Project Detail
+- Person Detail
+- Conversation
+- Accounting
+- Transaction Detail
+- Tasks
+- Search
+
+---
+
+## Empty State
+
+新規Documentでは、作成の起点に応じた初期状態を表示する。
+
+Projectから作成した場合
+
+```text
+Project情報をもとに下書きを作成しました
+```
+
+単独で作成した場合
+
+```text
+宛先またはProjectを選択してください
+```
+
+品目がない場合は以下を表示する。
+
+```text
+品目はまだありません
+
+品目を追加
+```
+
+---
+
+## Error State
+
+Documentの取得に失敗した場合は以下を提供する。
+
+- 再読み込み
+- キャッシュされた下書き
+- Documentsへ戻る
+- ローカル保存内容の復元
+
+PDF生成または送付に失敗した場合は以下を表示する。
+
+- 失敗した処理
+- 原因
+- 再試行
+- 別の送付方法
+- 下書きの保持
+
+送付に失敗しても、Document StatusをSentへ変更しない。
+
+---
+
+## Loading State
+
+Document Headerとローカル保存された入力内容を優先して表示する。
+
+Previewや関連情報は独立して読み込む。
+
+PDF生成中は進行状態を表示し、編集内容を失わないようにする。
+
+---
+
+## Offline Behavior
+
+オフライン時も下書きの作成と編集を可能にすることを検討する。
+
+オンライン接続が必要な操作
+
+- メール送付
+- 共有リンク作成
+- Client Portal更新
+- 外部会計連携
+- Cloud PDF保存
+
+オフライン中の変更はローカルへ保存し、接続回復後に同期する。
+
+MVPでは限定的な下書き保存のみでもよい。
+
+---
+
+## Permissions
+
+チーム利用時はDocumentごとに権限を設定できる。
+
+権限候補
+
+- 閲覧
+- 編集
+- 発行
+- 送付
+- 入金記録
+- 削除
+
+MVPでは個人利用を前提とし、権限管理を実装しなくてもよい。
+
+---
+
+## MVP Scope
+
+MVPでは以下を実装する。
+
+- Document Header
+- Current Status
+- Document Preview
+- Edit Mode
+- 見積書
+- 請求書
+- その他Document
+- Document番号
+- 発行日
+- Contact
+- Project
+- Line Items
+- 数量
+- 単価
+- 税率
+- 合計金額
+- 支払期限
+- 備考
+- 発行者情報
+- 振込先
+- PDF出力
+- メールまたは共有による送付
+- Send Message編集
+- 送付履歴
+- Accounting Summary
+- 入金記録への導線
+- Internal Notes
+- History
+- AIによる入力候補
+- AIによる送付Message候補
+- 自動下書き保存
+
+---
+
+## MVP Simplifications
+
+MVPでは以下を簡略化できる。
+
+- Previewは固定Template一種類
+- Versioningは発行後の複製で代用する
+- Viewedステータスは実装しない
+- Client Approvalは手動記録のみ
+- Client Portalは実装しない
+- 電子署名は実装しない
+- 複数通貨は実装しない
+- Languageは日本語固定
+- 税率は標準税率と非課税のみ
+- 源泉徴収は手動入力
+- 端数処理は固定
+- 送付方法はGmailまたはPDF共有のみ
+- Permissionsは実装しない
+- Offline対応はローカル下書き保存のみ
+- Document Relationshipsは見積書から請求書への変換のみ
+
+---
+
+## Future
+
+正式版以降で以下を検討する。
+
+- 複数Template
+- Custom Template Editor
+- ロゴ・印影配置
+- 電子署名
+- 電子契約
+- Client Approval
+- Client Portal
+- Online Payment
+- Credit Card Payment
+- 開封通知
+- 閲覧履歴
+- Version Comparison
+- Multiple Currency
+- Multiple Language
+- 品目ライブラリ
+- 価格表
+- 割引設定
+- 分割請求
+- 定期請求
+- 一部入金
+- 返金
+- Credit Note
+- 外部会計サービス連携
+- 税理士共有
+- インボイス制度の高度対応
+- 源泉徴収の自動計算候補
+- 海外取引対応
+- Access Permission
+- Team Approval Flow
+- AIによる契約書解析
+- AIによる条件差分比較
+- AIによる過去Document再利用
+- AIによる未請求検出
+- AIによる送付タイミング候補
+
+---
+
+## Success Criteria
+
+Document Detailを開いたユーザーが、以下を一つの画面で把握し、操作できること。
+
+- 何のDocumentか
+- 誰に対するDocumentか
+- どのProjectに関係するか
+- 内容は正しいか
+- 金額はいくらか
+- 現在どの状態か
+- 送付済みか
+- 承認済みか
+- 入金済みか
+- 次に何をするべきか
+
+Documentの作成から確認、PDF出力、送付、承認、入金確認までが自然につながること。
+
+Document Detailが単なる書類編集画面ではなく、書類に関する仕事を完了するWorkspaceとして機能することを目標とする。
+
+
