@@ -7642,3 +7642,2241 @@ Transactionの記録から、Project、Document、Contactとの紐付け、確�
 Transaction Detailが単なる金額入力画面ではなく、仕事とお金の関係を確定する画面として機能することを目標とする。
 
 
+# Search
+
+## Layer
+
+Utility
+
+---
+
+## Purpose
+
+Searchは、Conversation、People、Projects、Tasks、Documents、Accountingなど、サービス内のすべての情報を横断して検索する画面である。
+
+ユーザーが「どの画面に保存されているか」を意識せず、名前、言葉、金額、日付、書類番号などから必要な情報を見つけられるようにする。
+
+Searchは、各画面の検索機能を置き換えるものではない。
+
+以下のような状況で利用するGlobal Searchとして設計する。
+
+```text
+どこにあるか分からないが、
+探したい情報は分かっている
+```
+
+---
+
+## Primary Goal
+
+ユーザーが検索対象の種類や保存場所を考えず、必要な情報へ数秒で到達できること。
+
+---
+
+## Design Philosophy
+
+Searchでは、Database構造やデータモデルをユーザーへ意識させない。
+
+ユーザーは自然な言葉で検索し、結果から仕事の文脈を理解できること。
+
+検索結果は単なる文字列一致の一覧ではなく、以下の関係が分かる形で表示する。
+
+- 誰との情報か
+- どのProjectに関係するか
+- どのConversationから発生したか
+- どのDocumentやTransactionに接続するか
+
+Search画面内で業務を完結させるのではなく、目的の画面へ移動するための入口として設計する。
+
+---
+
+## Search Scope
+
+Global Searchでは以下を検索対象とする。
+
+- Conversation
+- Message
+- Contact
+- Project
+- Task
+- Document
+- Transaction
+- Accounting情報
+- File
+- Note
+- Label
+
+MVPでは以下を中心に実装する。
+
+- Conversation
+- Contact
+- Project
+- Task
+- Document
+- Transaction
+
+---
+
+## Searchable Fields
+
+### Conversation and Message
+
+- Conversation Group名
+- Message本文
+- 送信者
+- Conversation Source
+- 添付ファイル名
+- ラベル
+- 送受信日時
+
+### Contact
+
+- 名前
+- 読み方
+- 所属
+- 部署
+- 役職
+- メールアドレス
+- 電話番号
+- Contact Channel
+- メモ
+- ラベル
+
+### Project
+
+- Project名
+- 概要
+- Contact
+- Task
+- Conversation
+- Document
+- メモ
+- ラベル
+- 金額
+
+### Task
+
+- Task名
+- メモ
+- Project
+- Contact
+- Conversation
+- 期限
+- ステータス
+
+### Document
+
+- Document名
+- Document番号
+- Document Type
+- Contact
+- Project
+- 品目
+- 金額
+- 備考
+- 発行日
+- 支払期限
+
+### Transaction
+
+- Transaction名
+- 金額
+- Contact
+- Project
+- Document
+- Category
+- メモ
+- 発生日
+- 支払方法
+
+---
+
+## Screen Structure
+
+Search画面の基本構造は以下とする。
+
+```text
+Search Header
+↓
+Search Input
+↓
+Recent Searches
+↓
+Search Suggestions
+↓
+Search Results
+↓
+Filters
+```
+
+検索開始後はSearch Resultsを中心に表示する。
+
+---
+
+## Search Header
+
+画面上部に以下を表示する。
+
+- 戻る
+- 画面名
+- Search Input
+- Filter
+- Search History削除
+
+モバイルではSearch InputをHeaderの中心に配置できる。
+
+---
+
+## Search Input
+
+検索語を入力する。
+
+入力例
+
+```text
+山田先生
+```
+
+```text
+10万円の請求書
+```
+
+```text
+来週までに修正
+```
+
+```text
+INV-2026-031
+```
+
+入力中に検索候補を表示できる。
+
+---
+
+## Natural Language Search
+
+Searchは自然文による検索に対応できる。
+
+例
+
+```text
+まだ入金されていない請求書
+```
+
+```text
+山田先生と話した編曲の案件
+```
+
+```text
+今月期限のTask
+```
+
+```text
+10万円以上のProject
+```
+
+AIは自然文を検索条件へ変換する候補を提示する。
+
+変換例
+
+```text
+検索条件
+
+Document Type：請求書
+Payment Status：未入金
+```
+
+AIによる解釈結果は表示し、ユーザーが修正できること。
+
+---
+
+## Recent Searches
+
+過去の検索語を表示する。
+
+表示内容
+
+- 検索語
+- 使用日時
+- 適用したFilter
+
+ユーザーは以下を行える。
+
+- 再検索
+- 個別削除
+- 履歴をすべて削除
+
+Search HistoryはSettingsから保存しない設定にできることを検討する。
+
+---
+
+## Search Suggestions
+
+入力内容に応じて候補を表示する。
+
+候補例
+
+- Contact名
+- Project名
+- Document番号
+- 最近開いた項目
+- よく利用する検索
+- ラベル
+- Filter候補
+
+入力例
+
+```text
+山田
+```
+
+候補
+
+```text
+山田太郎
+山田先生とのConversation
+○○高校 編曲依頼
+```
+
+AI候補と通常の文字列一致候補は、必要に応じて区別する。
+
+---
+
+## Search Results
+
+検索結果を種類ごとに表示する。
+
+基本構造
+
+```text
+Top Results
+↓
+Conversations
+↓
+People
+↓
+Projects
+↓
+Tasks
+↓
+Documents
+↓
+Transactions
+```
+
+結果が少ない場合は一つの統合リストとして表示できる。
+
+結果が多い場合は種類ごとにSectionを分ける。
+
+---
+
+## Top Results
+
+検索語に最も関連すると考えられる結果を表示する。
+
+表示候補
+
+- 完全一致
+- 最近利用した結果
+- 現在進行中のProject
+- 要返信Conversation
+- 対応が必要なDocument
+- 期限が近いTask
+
+AIによる関連度は検索結果の補助として使用する。
+
+ユーザーが種類別一覧へ移動できること。
+
+---
+
+## Result Context
+
+各検索結果には、該当した文字列だけでなく仕事の文脈を表示する。
+
+Conversationの例
+
+```text
+山田先生
+
+「来週までに修正版をお願いします」
+
+○○高校 編曲依頼
+昨日・LINE
+```
+
+Documentの例
+
+```text
+請求書 #INV-2026-031
+
+○○高校 編曲依頼
+山田先生
+
+100,000円
+未入金
+```
+
+Taskの例
+
+```text
+初稿PDFを山田先生へ送る
+
+○○高校 編曲依頼
+今日
+```
+
+---
+
+## Highlighting
+
+検索語と一致する部分を強調表示する。
+
+長いMessageやNoteでは、一致部分の前後を抜粋して表示する。
+
+機密情報を不必要に広く表示しない。
+
+---
+
+## Result Types
+
+### Conversation Result
+
+表示内容
+
+- Conversation Group名
+- 一致Messageの抜粋
+- Contact
+- Conversation Source
+- 関連Project
+- 送受信日時
+- 要返信状態
+
+選択するとConversationへ遷移し、該当Message付近を表示する。
+
+### People Result
+
+表示内容
+
+- 名前
+- 所属
+- 役職
+- Contact Channel
+- 最新Conversation
+- 進行中Project数
+
+選択するとPerson Detailへ遷移する。
+
+### Project Result
+
+表示内容
+
+- Project名
+- Primary Contact
+- ステータス
+- 納期
+- Next Action
+- 金額
+
+選択するとProject Detailへ遷移する。
+
+### Task Result
+
+表示内容
+
+- Task名
+- Project
+- Contact
+- 期限
+- ステータス
+
+選択するとTask Detailを開く。
+
+### Document Result
+
+表示内容
+
+- Document名
+- Document番号
+- Type
+- Contact
+- Project
+- 金額
+- ステータス
+
+選択するとDocument Detailへ遷移する。
+
+### Transaction Result
+
+表示内容
+
+- Description
+- Transaction Type
+- 金額
+- 発生日
+- Contact
+- Project
+- Category
+
+選択するとTransaction Detailへ遷移する。
+
+---
+
+## Filters
+
+検索結果を以下で絞り込める。
+
+- Result Type
+- Date
+- Contact
+- Project
+- Status
+- Label
+- Conversation Source
+- Document Type
+- Transaction Type
+- Amount Range
+
+Filterは検索対象に応じて動的に表示する。
+
+例
+
+Documentだけを表示している場合
+
+- Document Type
+- Status
+- Issue Date
+- Contact
+- Project
+- Amount
+
+---
+
+## Date Search
+
+自然な日付表現で検索できる。
+
+例
+
+- 今日
+- 昨日
+- 今週
+- 先月
+- 7月
+- 2026年8月
+- 8月10日まで
+- 過去30日
+
+日付がMessage日時、Task期限、Document発行日など、どの項目へ適用されているかを表示する。
+
+---
+
+## Amount Search
+
+金額を条件として検索できる。
+
+例
+
+```text
+10万円
+```
+
+```text
+5万円以上
+```
+
+```text
+1万円から3万円
+```
+
+対象候補
+
+- Project金額
+- Document金額
+- Transaction金額
+- 未入金金額
+- 支出金額
+
+検索対象が曖昧な場合は種類別に結果を表示する。
+
+---
+
+## Search Within Context
+
+特定の画面からSearchを開いた場合、検索範囲を引き継げる。
+
+例
+
+Project DetailからSearchを開いた場合
+
+```text
+○○高校 編曲依頼の中を検索
+```
+
+対象
+
+- Conversation
+- Task
+- Document
+- File
+- Note
+- Transaction
+
+ユーザーはGlobal Searchへ切り替えられる。
+
+---
+
+## Saved Searches
+
+よく使う検索条件を保存できる。
+
+例
+
+- 未入金の請求書
+- 今週締切のTask
+- 山田先生の進行中Project
+- Project未紐付けTransaction
+
+保存した検索はHomeのAction FiltersやShortcutとして利用できることを検討する。
+
+MVPではSaved Searchesを実装対象外としてもよい。
+
+---
+
+## Search Actions
+
+検索結果から対象画面へ遷移するほか、簡易Actionを提供できる。
+
+例
+
+Conversation
+
+- 既読にする
+- 返信を開く
+
+Task
+
+- 完了する
+- 期限を変更する
+
+Document
+
+- PDFを表示する
+- 送付する
+
+Transaction
+
+- 確認済みにする
+- Projectへ紐づける
+
+簡易Actionを増やしすぎず、基本は対象画面への遷移を優先する。
+
+---
+
+## User Actions
+
+ユーザーはSearch画面で以下を行える。
+
+- 検索語を入力する
+- 自然文で検索する
+- 候補を選択する
+- Filterを設定する
+- 並び替える
+- 検索履歴を確認する
+- 検索履歴を削除する
+- 結果の種類を切り替える
+- 結果を開く
+- 保存検索を作成する
+- Global SearchとContext Searchを切り替える
+
+---
+
+## Sorting
+
+検索結果を以下で並び替えられる。
+
+- 関連度
+- 最終更新
+- 日付
+- 名前
+- 金額
+- 期限
+
+初期状態では関連度を優先する。
+
+種類別表示では、各種類に適した並び順を使用できる。
+
+---
+
+## AI Support
+
+AIはSearch内で以下を補助できる。
+
+- 自然文の検索条件への変換
+- 検索語の補完
+- 表記揺れの吸収
+- Contact名候補
+- Project候補
+- Document Type候補
+- Date Filter候補
+- Amount Filter候補
+- 類似表現検索
+- 関連結果候補
+- 検索結果の簡易要約
+- 検索条件の修正候補
+
+AIは検索結果そのものを書き換えない。
+
+AIによる推測結果と実際に保存されている情報を区別する。
+
+---
+
+## Semantic Search
+
+完全一致しない場合も、意味が近い情報を候補として表示できる。
+
+例
+
+検索語
+
+```text
+修正版を送る
+```
+
+候補
+
+```text
+Task
+初稿を修正して再提出する
+```
+
+Semantic Searchを利用した結果には、必要に応じて一致理由を表示する。
+
+MVPでは文字列検索を中心とし、Semantic Searchは段階的に実装できる。
+
+---
+
+## Search Result Summary
+
+検索結果が多い場合、AIは結果を短く要約できる。
+
+例
+
+```text
+山田先生に関連する情報が12件あります。
+
+進行中Project 2件
+要返信Conversation 1件
+未入金Document 1件
+```
+
+Summaryは検索結果の代わりにしない。
+
+元の結果へアクセスできること。
+
+---
+
+## Navigation
+
+Searchから以下へ遷移できる。
+
+- Conversation
+- Person Detail
+- Project Detail
+- Task Detail
+- Document Detail
+- Transaction Detail
+- Accounting
+- Settings
+
+遷移後、Searchへ戻った際に検索語、Filter、スクロール位置を維持する。
+
+---
+
+## Empty State
+
+検索前は以下を表示する。
+
+```text
+何を探しますか？
+```
+
+補助例
+
+```text
+名前、Project、Message、Document番号、
+金額などから検索できます。
+```
+
+最近の検索や最近開いた項目を表示できる。
+
+---
+
+## No Results State
+
+検索結果がない場合は以下を表示する。
+
+```text
+一致する結果がありません
+```
+
+補助Action
+
+- 検索語を変更
+- Filterを解除
+- Global Searchへ切り替え
+- 表記を変えて検索
+- 新しいContactまたはProjectを作成
+
+AIは別の検索語候補を提示できる。
+
+---
+
+## Error State
+
+検索に失敗した場合は以下を提供する。
+
+- 再検索
+- オフライン検索
+- 最近開いた項目
+- Filter解除
+
+一部のデータソースの検索に失敗した場合も、取得できた結果は表示する。
+
+---
+
+## Loading State
+
+入力中は短い遅延を設け、過剰な検索Requestを防ぐ。
+
+検索結果のスケルトンを表示する。
+
+追加結果の読み込みでは、既存結果を維持する。
+
+---
+
+## Offline Behavior
+
+オフライン時は端末に保存されたデータを検索できることを検討する。
+
+検索対象
+
+- 最近のConversation
+- Contact
+- Project
+- Task
+- Document Metadata
+- Transaction Metadata
+
+オンライン限定の結果が含まれないことを表示する。
+
+---
+
+## Privacy
+
+Search結果には機密情報が含まれる可能性がある。
+
+以下を考慮する。
+
+- ロック画面からの検索制限
+- Search History保存設定
+- 機密情報のPreview制限
+- Shared Device Mode
+- 生体認証
+- 権限に応じた検索結果制御
+
+---
+
+## MVP Scope
+
+MVPでは以下を実装する。
+
+- Global Search
+- Search Input
+- Recent Searches
+- Conversation検索
+- Contact検索
+- Project検索
+- Task検索
+- Document検索
+- Transaction検索
+- Result Type Filter
+- Contact Filter
+- Project Filter
+- Date Filter
+- Search Result Highlight
+- Result Context表示
+- 各Detail画面への遷移
+- 検索状態の保持
+- 基本文字列検索
+- AIによる検索語候補
+- AIによる自然文Filter候補
+
+---
+
+## MVP Simplifications
+
+MVPでは以下を簡略化できる。
+
+- Semantic Searchは限定的または未実装
+- Saved Searchesは実装しない
+- Search Result Summaryは実装しない
+- Amount Searchは完全一致または範囲指定のみ
+- Context SearchはProject Detail内のみ
+- File本文検索は実装しない
+- 添付ファイル内容検索は実装しない
+- Search Actionsは対象画面への遷移のみ
+- Offline Searchは最近のデータのみ
+- Search Historyは端末単位で保存する
+
+---
+
+## Future
+
+正式版以降で以下を検討する。
+
+- 高度なSemantic Search
+- Attachment全文検索
+- PDF全文検索
+- 音声Message検索
+- 画像内文字検索
+- File内容検索
+- Saved Searches
+- Smart Folder
+- Search Shortcut
+- Home Action Filtersとの連動
+- Search Result Summary
+- 複数条件の自然文検索
+- 音声検索
+- 表記揺れ辞書
+- 略称辞書
+- Custom Search Scope
+- チーム横断検索
+- Permission-aware Search
+- Search Analytics
+- AIによる検索意図推定
+- AIによる関連Project探索
+- AIによる過去案件比較
+
+---
+
+## Success Criteria
+
+Searchを利用するユーザーが、以下を意識せず情報を見つけられること。
+
+- どの画面に保存されているか
+- どのData Modelに属するか
+- どのConversation Sourceから来たか
+- 正確な名称を覚えているか
+
+検索結果から、対象のConversation、Person、Project、Task、Document、Transactionへ迷わず移動できること。
+
+Searchが単なる文字列検索ではなく、仕事の文脈を横断して必要な情報へ到達する入口として機能することを目標とする。
+
+---
+
+# Settings
+
+## Layer
+
+Utility
+
+---
+
+## Purpose
+
+Settingsは、ユーザー情報、外部サービス連携、通知、AI、Document、Accounting、Securityなど、サービス全体の動作を設定する画面である。
+
+Settingsは、日常的に仕事を行うための画面ではない。
+
+ユーザーがサービスを自分の業務環境へ適合させ、安心して利用するための管理画面として設計する。
+
+---
+
+## Primary Goal
+
+ユーザーが設定項目の場所を迷わず見つけ、サービス全体の動作を安全に変更できること。
+
+---
+
+## Design Philosophy
+
+Settingsでは、設定項目を機能単位ではなく、ユーザーが理解しやすい目的単位で分類する。
+
+設定項目を一つの長い一覧へ無秩序に並べない。
+
+基本カテゴリは以下とする。
+
+```text
+Account
+Business Profile
+Connections
+Notifications
+AI
+Documents
+Accounting
+Data
+Security
+Appearance
+Support
+About
+```
+
+危険な操作や元に戻せない操作は、通常の設定から視覚的に分離する。
+
+---
+
+## Screen Structure
+
+Settingsの基本構造は以下とする。
+
+```text
+Settings Header
+↓
+Account
+↓
+Business Profile
+↓
+Connections
+↓
+Notifications
+↓
+AI
+↓
+Documents
+↓
+Accounting
+↓
+Data and Storage
+↓
+Security and Privacy
+↓
+Appearance
+↓
+Support
+↓
+About
+↓
+Danger Zone
+```
+
+各カテゴリを選択すると、詳細画面または展開Sectionを表示する。
+
+---
+
+## Settings Header
+
+画面上部に以下を表示する。
+
+- 画面名
+- Search Settings
+- Account Summary
+- 同期状態
+
+Account Summary表示例
+
+```text
+川端 結
+yu@example.com
+```
+
+---
+
+## Settings Search
+
+設定項目を検索できる。
+
+検索対象例
+
+- 通知
+- Gmail
+- 請求書
+- 振込先
+- AI
+- パスワード
+- データ出力
+- ダークモード
+
+検索結果から該当設定まで直接移動できる。
+
+MVPでは設定カテゴリの文字列検索のみでもよい。
+
+---
+
+## Account
+
+ユーザーアカウントに関する設定を行う。
+
+項目候補
+
+- 名前
+- メールアドレス
+- 電話番号
+- Profile Image
+- Login Method
+- Password
+- Language
+- Time Zone
+- Date Format
+- Currency
+- Logout
+
+MVPでは日本語、日本時間、日本円を初期値として設定できる。
+
+---
+
+## Business Profile
+
+仕事上の発行者情報を設定する。
+
+項目候補
+
+- 氏名
+- 屋号
+- 法人名
+- 郵便番号
+- 住所
+- 電話番号
+- メールアドレス
+- Webサイト
+- 登録番号
+- ロゴ
+- 印影
+- 振込先
+- 支払条件
+- Document Footer
+- Default Message
+
+Business ProfileはDocument作成時の初期値として使用する。
+
+既に発行済みのDocumentへ自動反映しない。
+
+---
+
+## Multiple Business Profiles
+
+複数の屋号や活動名を使い分けられることを将来的に検討する。
+
+例
+
+- 個人名義
+- U-Studio
+- 匿名クリエイター名義
+
+ProjectまたはDocumentごとにBusiness Profileを選択できる。
+
+MVPでは一つのBusiness Profileのみとする。
+
+---
+
+## Connections
+
+外部サービスとの接続を管理する。
+
+接続候補
+
+- Gmail
+- Google Calendar
+- Google Contacts
+- Google Drive
+- LINE
+- Instagram
+- Facebook
+- X
+- 銀行
+- クレジットカード
+- 会計ソフト
+- Cloud Storage
+
+各Connectionで以下を表示する。
+
+- 接続状態
+- 接続アカウント
+- 最終同期日時
+- 同期対象
+- 権限
+- 再接続
+- 接続解除
+
+---
+
+## Connection Detail
+
+Connectionごとに同期範囲を設定できる。
+
+Gmailの例
+
+- 同期するメールアドレス
+- 対象期間
+- 対象Label
+- 除外する送信者
+- 添付ファイル取得
+- 送信権限
+- 同期頻度
+
+Google Calendarの例
+
+- 同期するCalendar
+- Task期限表示
+- Project納期表示
+- Calendar Event作成
+- 双方向同期
+
+MVPではConnectionごとの設定項目を限定できる。
+
+---
+
+## Connection Permissions
+
+外部サービスへ付与している権限を確認できる。
+
+例
+
+- Message閲覧
+- Message送信
+- Contact閲覧
+- Calendar閲覧
+- Calendar作成
+- File閲覧
+
+ユーザーは接続解除または権限の再承認を行える。
+
+権限が不足している場合は、その影響を具体的に表示する。
+
+---
+
+## Sync Status
+
+各Connectionの同期状態を表示する。
+
+状態候補
+
+- 正常
+- 同期中
+- 一部エラー
+- 認証切れ
+- 停止中
+- 未接続
+
+表示内容
+
+- 最終成功日時
+- 最終試行日時
+- 取得件数
+- エラー内容
+- 再試行
+
+一つのConnectionが失敗しても、他の機能を停止しない。
+
+---
+
+## Notifications
+
+通知設定を管理する。
+
+通知カテゴリ
+
+- Conversation
+- Tasks
+- Projects
+- Documents
+- Accounting
+- Connections
+- Security
+- Product Updates
+
+通知方法
+
+- Push
+- Email
+- In-App
+- Calendar
+
+---
+
+## Conversation Notifications
+
+設定候補
+
+- 新着Message
+- 要返信候補
+- 重要Conversation
+- 特定Contact
+- 特定Conversation Source
+- 通知しない時間帯
+
+AIによる要返信判定だけで過剰な通知を送らない。
+
+---
+
+## Task Notifications
+
+設定候補
+
+- 期限当日
+- 期限前
+- 期限超過
+- Waiting確認予定日
+- Next Action
+- Recurring Task
+
+ユーザーは通知タイミングを選択できる。
+
+例
+
+- 時刻指定
+- 1日前
+- 3日前
+- 通知なし
+
+---
+
+## Document Notifications
+
+設定候補
+
+- 下書き未完了
+- 未送付
+- 有効期限
+- 支払期限
+- 承認
+- 差し戻し
+- 入金
+
+---
+
+## Accounting Notifications
+
+設定候補
+
+- 未請求
+- 未入金
+- 支払期限前
+- 支払期限超過
+- 支払予定
+- 未分類Transaction
+- 同期エラー
+
+---
+
+## Quiet Hours
+
+通知しない時間帯を設定できる。
+
+項目
+
+- 開始時刻
+- 終了時刻
+- 曜日
+- 緊急通知の扱い
+
+MVPでは一つのQuiet Hoursのみでもよい。
+
+---
+
+## AI Settings
+
+AI機能の動作を管理する。
+
+基本原則は以下とする。
+
+```text
+AIは整理する
+ユーザーが決める
+```
+
+AI Settingsで、AIが自動実行できるようにはしない。
+
+設定できるのは主に提案範囲と表示方法である。
+
+---
+
+## AI Features
+
+個別に有効・無効を設定できる。
+
+- Conversation Summary
+- Reply Suggestions
+- Project Candidates
+- Task Candidates
+- Document Candidates
+- Contact Candidates
+- Duplicate Detection
+- Search Assistance
+- Accounting Matching
+- Receipt Extraction
+- Priority Suggestions
+
+すべてのAI機能を一括で無効にできること。
+
+---
+
+## AI Suggestion Level
+
+AI提案の表示量を設定できる。
+
+候補
+
+- Minimal
+- Standard
+- Proactive
+
+UIでは以下のように説明する。
+
+### Minimal
+
+明示的に実行した場合のみAIを使用する。
+
+### Standard
+
+必要な場所に控えめな候補を表示する。
+
+### Proactive
+
+候補をより積極的に表示する。
+
+どのLevelでも自動送信や自動確定は行わない。
+
+---
+
+## AI Data Usage
+
+AI処理に使用される情報を説明する。
+
+表示内容
+
+- 使用するデータ
+- 使用目的
+- 外部AI Providerの有無
+- 保存期間
+- 学習利用の有無
+- 無効化方法
+
+ユーザーがAI処理の対象を制限できることを検討する。
+
+例
+
+- Message本文を使用しない
+- AccountingをAI対象外にする
+- 特定Conversationを除外する
+- 添付ファイルを解析しない
+
+---
+
+## AI History
+
+AIによる提案履歴を確認できることを将来的に検討する。
+
+表示候補
+
+- 提案内容
+- 対象
+- 採用・不採用
+- 作成日時
+
+MVPでは実装しなくてもよい。
+
+---
+
+## Document Settings
+
+Document作成の初期設定を管理する。
+
+項目候補
+
+- Default Template
+- Document Number Format
+- Tax Rate
+- Tax Calculation
+- Rounding
+- Currency
+- Language
+- Payment Terms
+- Estimate Validity
+- Invoice Due Date
+- Default Notes
+- Default Send Message
+- Logo
+- Signature
+- Bank Information
+
+---
+
+## Document Number Settings
+
+Document Typeごとに番号形式を設定できる。
+
+例
+
+```text
+EST-{YYYY}-{000}
+INV-{YYYY}-{000}
+```
+
+設定候補
+
+- Prefix
+- 年
+- 月
+- 連番
+- 桁数
+- リセット周期
+- 次回番号
+
+MVPでは固定形式を使用してもよい。
+
+---
+
+## Payment Terms
+
+請求書の支払期限の初期値を設定する。
+
+例
+
+- 発行日から14日
+- 発行日から30日
+- 当月末
+- 翌月末
+- 手動設定
+
+ProjectまたはContactごとに上書きできることを検討する。
+
+---
+
+## Accounting Settings
+
+Accountingの基本設定を管理する。
+
+項目候補
+
+- 会計年度開始月
+- Currency
+- Default Category
+- Payment Methods
+- Accounts
+- Tax
+- Withholding Tax
+- Business Use
+- Export Format
+- External Accounting Service
+
+MVPでは以下を中心にする。
+
+- Currency
+- Category
+- Payment Methods
+- CSV Export
+
+---
+
+## Category Settings
+
+収入・支出カテゴリを管理する。
+
+ユーザーは以下を行える。
+
+- Category追加
+- 名前変更
+- 並び替え
+- 非表示
+- Default設定
+
+過去Transactionで使用中のCategoryを削除する場合は、別Categoryへの変更または非表示を推奨する。
+
+---
+
+## Payment Method Settings
+
+支払方法を管理する。
+
+例
+
+- 銀行振込
+- 現金
+- クレジットカード
+- 電子マネー
+- QR決済
+
+ユーザー独自の方法を追加できる。
+
+---
+
+## Data and Storage
+
+データの保存、取込、書出、同期を管理する。
+
+項目候補
+
+- Storage Usage
+- Cache
+- File Storage
+- Data Export
+- Data Import
+- Backup
+- Restore
+- Offline Data
+- Sync Frequency
+
+---
+
+## Data Export
+
+ユーザー自身のデータを書き出せる。
+
+対象候補
+
+- Contacts
+- Projects
+- Tasks
+- Documents
+- Transactions
+- Conversations Metadata
+- Files
+- Settings
+
+形式候補
+
+- CSV
+- JSON
+- PDF
+- ZIP
+
+MVPでは主要データのCSV出力を提供する。
+
+---
+
+## Data Import
+
+既存データを取り込める。
+
+対象候補
+
+- Contacts CSV
+- Projects CSV
+- Transactions CSV
+- Documents
+- Bank Statement
+- Accounting Service Export
+
+Import前にPreviewを表示し、重複候補を確認できること。
+
+---
+
+## Backup and Restore
+
+データのBackupとRestoreを管理する。
+
+候補
+
+- Automatic Backup
+- Manual Backup
+- Backup History
+- Restore Point
+
+MVPではCloud上の通常保存のみで、ユーザー操作によるRestoreを実装しなくてもよい。
+
+---
+
+## Storage Usage
+
+使用しているStorage容量を表示する。
+
+内訳候補
+
+- Message Attachments
+- Documents
+- Files
+- Receipt Images
+- Cache
+
+容量削減Action
+
+- Cache削除
+- 古いAttachment削除
+- Archive
+- Export後削除
+
+ユーザーの確認なしに元データを削除しない。
+
+---
+
+## Security and Privacy
+
+アカウントと機密情報を保護する設定を管理する。
+
+項目候補
+
+- Password
+- Passkey
+- Two-Factor Authentication
+- Biometric Lock
+- App Lock
+- Active Sessions
+- Login History
+- Connected Devices
+- Privacy Settings
+- Data Processing
+- Search History
+- AI Data Usage
+
+---
+
+## Biometric Lock
+
+アプリ起動時または特定画面の表示時に生体認証を要求できる。
+
+対象候補
+
+- アプリ全体
+- Accounting
+- Documents
+- Settings
+- Data Export
+
+MVPではアプリ全体のロックのみでもよい。
+
+---
+
+## Active Sessions
+
+ログイン中の端末を表示する。
+
+表示内容
+
+- Device
+- Location
+- Last Active
+- Login Method
+
+ユーザーは他端末からログアウトできる。
+
+---
+
+## Privacy Settings
+
+設定候補
+
+- Search History保存
+- Recent Items表示
+- Notification Preview
+- Attachment解析
+- AI解析対象
+- Analytics送信
+- Crash Report
+- Product Improvement Data
+
+初期状態とデータ利用目的を明確に説明する。
+
+---
+
+## Appearance
+
+表示に関する設定を管理する。
+
+項目候補
+
+- Theme
+- Text Size
+- Density
+- Language
+- Date Format
+- Time Format
+- Currency Display
+- Accessibility
+
+Theme候補
+
+- System
+- Light
+- Dark
+
+---
+
+## Accessibility
+
+アクセシビリティ設定を提供する。
+
+項目候補
+
+- 文字サイズ
+- 高コントラスト
+- 動きを減らす
+- Screen Reader最適化
+- 色以外による状態表示
+- Touch Target拡大
+
+重要なステータスを色だけで表現しない。
+
+---
+
+## Home Customization
+
+Homeの表示を調整できることを将来的に検討する。
+
+項目候補
+
+- Action Filters
+- Conversation Indicator
+- FAB Menu
+- Default Sort
+- Hidden Labels
+
+MVPではHome構造を固定してもよい。
+
+---
+
+## Labels
+
+サービス全体で利用するLabelを管理する。
+
+ユーザーは以下を行える。
+
+- Label作成
+- 名前変更
+- 色変更
+- 並び替え
+- 非表示
+- 削除
+
+削除時は既存データからLabelが外れることを確認する。
+
+AI MetadataはユーザーLabelとは別に管理する。
+
+---
+
+## Templates
+
+再利用可能なTemplateを管理することを将来的に検討する。
+
+対象候補
+
+- Project
+- Task
+- Document
+- Message
+- Note
+- Accounting Category
+
+MVPではDocument Templateのみでもよい。
+
+---
+
+## Support
+
+ユーザーが問題を解決するための情報を表示する。
+
+項目
+
+- Help Center
+- FAQ
+- Tutorial
+- Contact Support
+- Report a Problem
+- Feature Request
+- System Status
+
+問い合わせ時に診断情報を添付する場合は、送信内容をユーザーへ表示する。
+
+---
+
+## Feedback
+
+ユーザーは以下を送信できる。
+
+- 不具合報告
+- 改善要望
+- AI提案へのFeedback
+- Connection不具合
+- Document出力不具合
+
+個人情報やMessage本文を自動添付しない。
+
+必要な場合はユーザーの確認を取る。
+
+---
+
+## About
+
+サービス情報を表示する。
+
+項目候補
+
+- App Version
+- Build Number
+- Terms of Service
+- Privacy Policy
+- Licenses
+- Copyright
+- Open Source Licenses
+- Update Information
+
+---
+
+## Subscription
+
+料金プランを管理することを将来的に検討する。
+
+項目候補
+
+- Current Plan
+- Usage
+- Billing Cycle
+- Payment Method
+- Upgrade
+- Downgrade
+- Cancel Subscription
+- Billing History
+- Receipt
+
+無料・有料機能の違いを具体的に表示する。
+
+---
+
+## Team Settings
+
+チーム利用時の設定を将来的に提供する。
+
+項目候補
+
+- Organization
+- Members
+- Roles
+- Permissions
+- Invitations
+- Shared Contacts
+- Shared Projects
+- Shared Documents
+- Billing
+
+MVPでは個人利用を前提とする。
+
+---
+
+## Danger Zone
+
+元に戻すことが難しい操作を分離して表示する。
+
+対象
+
+- Connection解除
+- 全データ削除
+- Account削除
+- Workspace削除
+- AI History削除
+- Search History削除
+- Cache削除
+- Reset Settings
+
+Account削除では以下を行う。
+
+- 再認証
+- 削除対象の説明
+- Exportへの導線
+- 待機期間
+- 最終確認
+
+---
+
+## Reset Settings
+
+設定を初期状態へ戻せる。
+
+対象を選択できることを検討する。
+
+- Notification
+- AI
+- Appearance
+- Document Defaults
+- Accounting Defaults
+- All Settings
+
+ユーザーデータ自体は削除しない。
+
+---
+
+## User Actions
+
+ユーザーはSettingsで以下を行える。
+
+- Account情報を編集する
+- Business Profileを編集する
+- Connectionを追加・解除する
+- 同期を再試行する
+- 通知を設定する
+- AI機能を有効・無効にする
+- AI提案量を変更する
+- Document初期値を設定する
+- Accounting初期値を設定する
+- Categoryを管理する
+- Payment Methodを管理する
+- DataをExportする
+- DataをImportする
+- Securityを設定する
+- Appearanceを変更する
+- Supportへ連絡する
+- Logoutする
+- Accountを削除する
+
+---
+
+## AI Support
+
+Settingsでは、AIを設定項目の案内に利用できる。
+
+例
+
+```text
+請求書の振込先を変更したい
+```
+
+AIは該当設定への導線を表示する。
+
+AIが設定を自動変更する場合は、変更内容を明示してユーザー確認を取る。
+
+AIは以下を行わない。
+
+- Connectionの無断追加
+- 権限の無断変更
+- Data Export
+- Data削除
+- Account削除
+- Security設定変更
+- 有料プラン変更
+
+---
+
+## Settings Recommendation
+
+サービス利用状況に応じて設定候補を表示できる。
+
+例
+
+```text
+請求書を毎回30日後の期限で作成しています。
+Default Payment Termsを30日に設定できます。
+```
+
+候補は控えめに表示し、自動変更しない。
+
+---
+
+## Navigation
+
+Settingsから以下へ遷移できる。
+
+- Connection Detail
+- Business Profile
+- Notification Settings
+- AI Settings
+- Document Settings
+- Accounting Settings
+- Security
+- Data Export
+- Data Import
+- Support
+- Subscription
+- Home
+
+---
+
+## Empty State
+
+Connectionがない場合は以下を表示する。
+
+```text
+まだ外部サービスが接続されていません
+```
+
+接続候補への導線を表示する。
+
+Business Profileが未設定の場合は以下を表示する。
+
+```text
+発行者情報を設定すると、
+見積書や請求書へ自動入力できます。
+```
+
+---
+
+## Error State
+
+設定の取得または保存に失敗した場合は以下を表示する。
+
+- 保存できなかった項目
+- 再試行
+- 以前の設定
+- Connection Status
+- Supportへの導線
+
+保存に失敗した場合、変更前の状態へ戻すか未保存状態を明示する。
+
+---
+
+## Loading State
+
+Settingsの基本カテゴリを先に表示する。
+
+Connection StatusやStorage Usageなどの外部情報は独立して読み込む。
+
+一つのSectionの失敗で画面全体をブロックしない。
+
+---
+
+## Offline Behavior
+
+オフライン時もローカル設定の変更を可能にする。
+
+対象例
+
+- Appearance
+- Notification Preference
+- AI表示設定
+- Default Values
+
+オンライン接続が必要な操作
+
+- Connection追加
+- Password変更
+- Data Export
+- Account削除
+- Subscription変更
+
+---
+
+## Permissions and Confirmation
+
+以下の操作は明示的な確認を必要とする。
+
+- Connection解除
+- Message送信権限の追加
+- AI解析対象の拡大
+- Data Export
+- Data Import
+- 全履歴削除
+- Account削除
+- Subscription変更
+
+変更内容と影響を確認画面で説明する。
+
+---
+
+## MVP Scope
+
+MVPでは以下を実装する。
+
+- Settings Home
+- Settings Search
+- Account
+- Business Profile
+- Gmail Connection
+- Google Calendar Connection
+- Connection Status
+- Notification Settings
+- Conversation Notifications
+- Task Notifications
+- Document Notifications
+- Accounting Notifications
+- AI機能のOn・Off
+- AI Suggestion Level
+- Document Defaults
+- 発行者情報
+- 振込先
+- Default Tax Rate
+- Default Payment Terms
+- Accounting Category
+- Payment Methods
+- CSV Export
+- Search History削除
+- Theme
+- Logout
+- Privacy Policy
+- Terms of Service
+- Account削除
+
+---
+
+## MVP Simplifications
+
+MVPでは以下を簡略化できる。
+
+- Business Profileは一つのみ
+- ConnectionはGmailとGoogle Calendarを中心にする
+- Connection Detailの設定項目は限定する
+- NotificationはPushとIn-Appのみ
+- Quiet Hoursは一つのみ
+- AI Suggestion LevelはOn・Offのみでもよい
+- Document Templateは一種類
+- Document Number Formatは固定
+- Accountingは簡易Categoryのみ
+- Data Importは実装しない
+- Data ExportはCSVのみ
+- Backup Historyは実装しない
+- Active Sessionsは実装しない
+- Two-Factor AuthenticationはFutureへ移動可能
+- Team Settingsは実装しない
+- Subscriptionは外部Store管理でもよい
+- Settings Recommendationは実装しない
+
+---
+
+## Future
+
+正式版以降で以下を検討する。
+
+- Multiple Business Profiles
+- 複数Workspace
+- LINE連携
+- Instagram連携
+- Facebook連携
+- X連携
+- 銀行連携
+- クレジットカード連携
+- 会計ソフト連携
+- Cloud Storage連携
+- Connectionごとの高度な同期条件
+- Custom Notification Rules
+- Custom AI Scope
+- AI History
+- AI Provider選択
+- Local AI
+- Multiple Document Templates
+- Template Editor
+- Custom Number Format
+- Multiple Currency
+- Multiple Language
+- Account Management
+- Backup and Restore
+- Full Data Import
+- Passkey
+- Two-Factor Authentication
+- Active Sessions
+- Team Settings
+- Role Management
+- Permission Management
+- Subscription Management
+- Usage Limits
+- Developer Settings
+- API Access
+- Webhook
+- Automation Rules
+- Settings Recommendation
+
+---
+
+## Success Criteria
+
+Settingsを開いたユーザーが、以下を迷わず設定できること。
+
+- 自分のアカウント
+- 仕事上の発行者情報
+- 外部サービス連携
+- 通知
+- AIの利用範囲
+- Documentの初期設定
+- Accountingの初期設定
+- データのExport
+- Security
+- Privacy
+
+設定変更の影響が分かり、危険な操作を誤って実行しないこと。
+
+Settingsが複雑な管理画面ではなく、サービスを自分の仕事へ適合させるための安全な調整画面として機能することを目標とする。
